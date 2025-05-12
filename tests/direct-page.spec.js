@@ -1,12 +1,13 @@
 // eslint-disable-next-line playwright/no-conditional-in-test
 import { test, expect } from '@playwright/test'
 import dotenv from 'dotenv'
-import { isGitHubPagesEnvironment, buildUrl } from './utils.js'
+import { isGitHubPagesEnvironment, buildUrl, getLastPartOfUrl } from './utils.js'
 
 // Load environment variables from .env file
 dotenv.config()
 
 let loggedBaseURL = false // Flag to ensure baseURL is logged only once
+let basePath = ''
 
 test.describe('Direct Page', () => {
   test.beforeEach(async ({ page }) => {
@@ -15,10 +16,14 @@ test.describe('Direct Page', () => {
     if (!loggedBaseURL) {
       const baseURL = page.context()._options.baseURL
       const configuredProxyUrl = process.env.VITE_AUTH_PROXY_URL || 'http://127.0.0.1:3333' // Default logic
+      const redirectUri = process.env.VITE_REDIRECT_URI || 'http://127.0.0.1:3333'
+      basePath = getLastPartOfUrl(baseURL)
       // eslint-disable-next-line playwright/no-conditional-in-test
       if (baseURL) {
         console.log(`\n🚀 Running tests against Service at URL: ${baseURL}`)
         console.log(`🔒 Using Auth Proxy URL: ${configuredProxyUrl}\n`)
+        console.log(`🔒 Using Redirect URI: ${redirectUri}\n`)
+        console.log(`🔒 Using basePath: ${basePath}\n`)
       }
       loggedBaseURL = true // Set flag so it doesn't log again
     }
