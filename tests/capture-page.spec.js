@@ -482,16 +482,289 @@ test.describe('Capture Page Registration Flow', () => {
 
     // Clean up the test capture
     console.log('🧹 Cleaning up test capture')
-    await deleteButtonOnCard.click()
-    await expect(deleteModal).toBeVisible()
+    const firstCaptureCard = page.locator('li:has-text("ESC test capture")')
+    const deleteButton = firstCaptureCard.locator('button:has-text("Delete")')
+    await deleteButton.click()
+    
+    const escDeleteModal = page.locator('h3:has-text("Delete Capture")')
+    await expect(escDeleteModal).toBeVisible()
+    
     const confirmDeleteButton = page.locator('button:has-text("Delete")').last()
     await confirmDeleteButton.click()
-    await expect(deleteModal).toBeHidden()
-    await expect(testCaptureCard).toBeHidden()
+    await expect(escDeleteModal).toBeHidden()
+    await expect(firstCaptureCard).toBeHidden()
     console.log('✅ Test capture cleaned up')
 
     // Logout and end
     await logoutFromApplication(page)
     console.log('✅ ESC key functionality test completed successfully')
+  });
+
+  test('name uniqueness validation prevents duplicate capture names', async ({ page }) => {
+    console.log(`\n▶️ Running Test: ${test.info().title}\n`)
+    console.log('🔍 Testing name uniqueness validation in Create Capture modal')
+
+    // Navigate to Capture page
+    await clickNavButton(page, 'Capture')
+    console.log('✅ Navigated to Capture page')
+
+    // Clean up any existing test captures first
+    console.log('🧹 Cleaning up any existing uniqueness test captures...')
+    
+    // Wait for captures to load
+    try {
+      await Promise.race([
+        page.locator('li[class*="bg-gray-100"]').first().waitFor({ timeout: 5000 }),
+        page.locator('text=No captures found').waitFor({ timeout: 5000 })
+      ])
+    } catch (e) {
+      console.log('⚠️ Captures loading state unclear, continuing...')
+    }
+
+    // Clean up any existing "Uniqueness Test Capture" captures
+    let existingTestCaptures = page.locator('li:has-text("Uniqueness Test Capture")')
+    let existingCount = await existingTestCaptures.count()
+    
+    if (existingCount > 0) {
+      console.log(`⚠️ Found ${existingCount} existing test capture(s), cleaning up...`)
+      
+      for (let i = 0; i < existingCount; i++) {
+        const capture = existingTestCaptures.first()
+        const deleteButton = capture.locator('button:has-text("Delete")')
+        await deleteButton.click()
+        
+        const cleanupDeleteModal = page.locator('h3:has-text("Delete Capture")')
+        await expect(cleanupDeleteModal).toBeVisible()
+        
+        const confirmDeleteButton = page.locator('button:has-text("Delete")').last()
+        await confirmDeleteButton.click()
+        await expect(cleanupDeleteModal).toBeHidden()
+        
+        await page.waitForTimeout(1000)
+        existingTestCaptures = page.locator('li:has-text("Uniqueness Test Capture")')
+      }
+      console.log('✅ Cleaned up existing test captures')
+    }
+
+    // Create the first capture
+    console.log('📝 Creating first capture with name "Uniqueness Test Capture"')
+    const createButton = page.locator('button:has-text("Create New Capture")')
+    await createButton.click()
+    
+    const createModal = page.locator('h3:has-text("Create New Capture")')
+    await expect(createModal).toBeVisible()
+    console.log('✅ Create modal opened')
+
+    // Fill in the form for the first capture
+    await page.fill('input[id="capture-name"]', 'Uniqueness Test Capture')
+    await page.fill('textarea[id="capture-description"]', 'First test capture')
+    await page.fill('input[id="camera-id"]', '1005963a')
+    
+    // Calculate a safe past date
+    const pastDate = new Date()
+    pastDate.setDate(pastDate.getDate() - 2)
+    pastDate.setHours(10, 0, 0, 0)
+    const pastDateString = pastDate.toISOString().slice(0, 16)
+    await page.fill('input[id="start-date-picker"]', pastDateString)
+    
+    // Wait for form validation and create the capture
+    await page.waitForTimeout(3000)
+    const createSubmitButton = page.locator('button:has-text("Create"):not(:has-text("New"))')
+    await createSubmitButton.click({ force: true })
+    await expect(createModal).toBeHidden({ timeout: 15000 })
+    console.log('✅ First capture created successfully')
+
+    // Wait for the captures list to be updated
+    await page.waitForTimeout(2000)
+
+    // Now try to create a second capture with the same name
+    console.log('📝 Attempting to create second capture with duplicate name')
+    await createButton.click()
+    await expect(createModal).toBeVisible()
+    console.log('✅ Create modal opened again')
+
+    // Fill in the same name
+    await page.fill('input[id="capture-name"]', 'Uniqueness Test Capture')
+    console.log('✅ Entered duplicate name')
+
+    // Wait for the validation to trigger
+    await page.waitForTimeout(500)
+
+    // Check that the name error message appears
+    const nameError = page.locator('p.text-red-600:has-text("A capture with this name already exists")')
+    await expect(nameError).toBeVisible()
+    console.log('✅ Name uniqueness error message displayed')
+
+    // Fill in the other required fields to make the form otherwise valid
+    await page.fill('textarea[id="capture-description"]', 'Second test capture')
+    await page.fill('input[id="camera-id"]', '1005963a')
+    await page.fill('input[id="start-date-picker"]', pastDateString)
+    console.log('✅ Filled in other required fields')
+
+    // Wait for form validation to complete
+    await page.waitForTimeout(1000)
+
+    // Verify that the Create button is disabled due to duplicate name
+    const disabledCreateButton = page.locator('button:has-text("Create"):not(:has-text("New"))')
+    await expect(disabledCreateButton).toBeDisabled()
+    console.log('✅ Create button is disabled when name is duplicate')
+
+    // Change the name to something unique
+    await page.fill('input[id="capture-name"]', 'Uniqueness Test Capture - Modified')
+    console.log('✅ Changed name to unique value')
+
+    // Wait for validation to clear
+    await page.waitForTimeout(1000)
+
+    // Check that the error message disappears
+    await expect(nameError).not.toBeVisible()
+    console.log('✅ Name error message cleared')
+
+    // Verify that the Create button is now enabled
+    await expect(disabledCreateButton).not.toBeDisabled()
+    console.log('✅ Create button is enabled with unique name')
+
+    // Cancel the modal
+    const cancelButton = page.locator('button:has-text("Cancel")')
+    await cancelButton.click()
+    await expect(createModal).toBeHidden()
+    console.log('✅ Cancelled second capture creation')
+
+    // Clean up the test capture
+    console.log('🧹 Cleaning up test capture')
+    const firstCaptureCard = page.locator('li:has-text("Uniqueness Test Capture")')
+    const deleteButton = firstCaptureCard.locator('button:has-text("Delete")')
+    await deleteButton.click()
+    
+    const uniquenessDeleteModal = page.locator('h3:has-text("Delete Capture")')
+    await expect(uniquenessDeleteModal).toBeVisible()
+    
+    const confirmDeleteButton = page.locator('button:has-text("Delete")').last()
+    await confirmDeleteButton.click()
+    await expect(uniquenessDeleteModal).toBeHidden()
+    await expect(firstCaptureCard).toBeHidden()
+    console.log('✅ Test capture cleaned up')
+
+    // Logout and end
+    await logoutFromApplication(page)
+    console.log('✅ Name uniqueness validation test completed successfully')
+  });
+
+  test('name uniqueness validation is case-insensitive', async ({ page }) => {
+    console.log(`\n▶️ Running Test: ${test.info().title}\n`)
+    console.log('🔍 Testing case-insensitive name uniqueness validation')
+
+    // Navigate to Capture page
+    await clickNavButton(page, 'Capture')
+    console.log('✅ Navigated to Capture page')
+
+    // Wait for captures to load
+    try {
+      await Promise.race([
+        page.locator('li[class*="bg-gray-100"]').first().waitFor({ timeout: 5000 }),
+        page.locator('text=No captures found').waitFor({ timeout: 5000 })
+      ])
+    } catch (e) {
+      console.log('⚠️ Captures loading state unclear, continuing...')
+    }
+
+    // Clean up any existing "Case Test Capture" captures
+    let existingTestCaptures = page.locator('li:has-text("case test capture")')
+    let existingCount = await existingTestCaptures.count()
+    
+    if (existingCount > 0) {
+      console.log(`⚠️ Found ${existingCount} existing test capture(s), cleaning up...`)
+      
+      for (let i = 0; i < existingCount; i++) {
+        const capture = existingTestCaptures.first()
+        const deleteButton = capture.locator('button:has-text("Delete")')
+        await deleteButton.click()
+        
+        const deleteModal = page.locator('h3:has-text("Delete Capture")')
+        await expect(deleteModal).toBeVisible()
+        
+        const confirmDeleteButton = page.locator('button:has-text("Delete")').last()
+        await confirmDeleteButton.click()
+        await expect(deleteModal).toBeHidden()
+        
+        await page.waitForTimeout(1000)
+        existingTestCaptures = page.locator('li:has-text("case test capture")')
+      }
+      console.log('✅ Cleaned up existing test captures')
+    }
+
+    // Create the first capture with lowercase name
+    console.log('📝 Creating first capture with name "case test capture"')
+    const createButton = page.locator('button:has-text("Create New Capture")')
+    await createButton.click()
+    
+    const createModal = page.locator('h3:has-text("Create New Capture")')
+    await expect(createModal).toBeVisible()
+    console.log('✅ Create modal opened')
+
+    // Fill in the form for the first capture
+    await page.fill('input[id="capture-name"]', 'case test capture')
+    await page.fill('textarea[id="capture-description"]', 'First test capture')
+    await page.fill('input[id="camera-id"]', '1005963a')
+    
+    // Calculate a safe past date
+    const pastDate = new Date()
+    pastDate.setDate(pastDate.getDate() - 2)
+    pastDate.setHours(10, 0, 0, 0)
+    const pastDateString = pastDate.toISOString().slice(0, 16)
+    await page.fill('input[id="start-date-picker"]', pastDateString)
+    
+    // Wait for form validation and create the capture
+    await page.waitForTimeout(3000)
+    const createSubmitButton = page.locator('button:has-text("Create"):not(:has-text("New"))')
+    await createSubmitButton.click({ force: true })
+    await expect(createModal).toBeHidden({ timeout: 15000 })
+    console.log('✅ First capture created successfully')
+
+    // Wait for the captures list to be updated
+    await page.waitForTimeout(2000)
+
+    // Now try to create a second capture with different case
+    console.log('📝 Attempting to create second capture with different case: "CASE TEST CAPTURE"')
+    await createButton.click()
+    await expect(createModal).toBeVisible()
+    console.log('✅ Create modal opened again')
+
+    // Fill in the name with different case
+    await page.fill('input[id="capture-name"]', 'CASE TEST CAPTURE')
+    console.log('✅ Entered name with different case')
+
+    // Wait for the validation to trigger (longer wait)
+    await page.waitForTimeout(1000)
+
+    // Check that the name error message appears (should detect case-insensitive duplicate)
+    const nameError = page.locator('p.text-red-600:has-text("A capture with this name already exists")')
+    await expect(nameError).toBeVisible()
+    console.log('✅ Name uniqueness error message displayed for case-insensitive duplicate')
+
+    // Cancel the modal
+    const cancelButton = page.locator('button:has-text("Cancel")')
+    await cancelButton.click()
+    await expect(createModal).toBeHidden()
+    console.log('✅ Cancelled second capture creation')
+
+    // Clean up the test capture
+    console.log('🧹 Cleaning up test capture')
+    const firstCaptureCard = page.locator('li:has-text("case test capture")')
+    const deleteButton = firstCaptureCard.locator('button:has-text("Delete")')
+    await deleteButton.click()
+    
+    const deleteModal = page.locator('h3:has-text("Delete Capture")')
+    await expect(deleteModal).toBeVisible()
+    
+    const confirmDeleteButton = page.locator('button:has-text("Delete")').last()
+    await confirmDeleteButton.click()
+    await expect(deleteModal).toBeHidden()
+    await expect(firstCaptureCard).toBeHidden()
+    console.log('✅ Test capture cleaned up')
+
+    // Logout and end
+    await logoutFromApplication(page)
+    console.log('✅ Case-insensitive name uniqueness validation test completed successfully')
   });
 }); 
