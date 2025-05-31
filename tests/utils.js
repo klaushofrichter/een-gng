@@ -89,17 +89,17 @@ export async function loginWithEEN(page) {
   console.log('🔑 Clicking sign in')
 
   // Click sign in
-  const signInButton = page.locator('#next')
-  console.log('🔑 Waiting for sign in button')
+  //const signInButton = page.locator('#next')
+  //console.log('🔑 Waiting for sign in button')
   const signInButtonByText = page.getByRole('button', { name: 'Sign in' })
 
-  try {
-    console.log('🔑 Clicking sign in')
-    await signInButton.click()
-  } catch (error) {
+  //try {
+  //  console.log('🔑 Clicking sign in')
+  //  await signInButton.click()
+  //} catch (error) {
     console.log('🔑 Clicking sign in by text')
     await signInButtonByText.click()
-  }
+  //}
   console.log('✅ Finished EEN login')
 }
 
