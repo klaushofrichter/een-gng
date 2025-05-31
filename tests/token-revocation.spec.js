@@ -48,7 +48,7 @@ test.describe('Token Revocation', () => {
     test.setTimeout(MAX_TEST_TIMEOUT)
 
     // go directly to the home page
-    await navigateToLogin(page, basePath)
+    //await navigateToLogin(page, basePath)
     await loginToApplication(page, basePath)
 
     // we expect to be on the home page

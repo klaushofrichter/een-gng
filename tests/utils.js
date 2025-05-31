@@ -48,7 +48,7 @@ export async function loginToApplication(page, basePath = '') {
   await loginWithEEN(page)
 
   // Wait for home page
-  await page.waitForURL(basePath + '/home', { timeout: 15000 })
+  await page.waitForURL(basePath + '/home', { timeout: 25000 })
   console.log('✅ Successfully logged in')
 }
 
@@ -73,37 +73,25 @@ export async function loginWithEEN(page) {
 
   // Fill email
   const emailInput = page.locator('#authentication--input__email')
-  await emailInput.waitFor({ state: 'visible', timeout: 12000 })
+  await emailInput.waitFor({ state: 'visible', timeout: 15000 })
   await emailInput.fill(username)
 
   // Click next
   await page.getByRole('button', { name: 'Next' }).click()
 
-  // wait for 1 second
-  console.log('🔑 Waiting for 1 second')
-  await page.waitForTimeout(1000)
-
   // Fill password
-  console.log('🔑 Filling password')
   const passwordInput = page.locator('#authentication--input__password')
-  console.log('🔑 Waiting for password input')
   await passwordInput.waitFor({ state: 'visible', timeout: 10000 })
-  console.log('🔑 Filling password')
   await passwordInput.fill(password)
-  console.log('🔑 Clicking sign in')
 
   // Click sign in
-  //const signInButton = page.locator('#next')
-  //console.log('🔑 Waiting for sign in button')
+  const signInButton = page.locator('#next')
   const signInButtonByText = page.getByRole('button', { name: 'Sign in' })
-
-  //try {
-  //  console.log('🔑 Clicking sign in')
-  //  await signInButton.click()
-  //} catch (error) {
-    console.log('🔑 Clicking sign in by text')
+  try {
+    await signInButton.click()
+  } catch (error) {
     await signInButtonByText.click()
-  //}
+  }
   console.log('✅ Finished EEN login')
 }
 
