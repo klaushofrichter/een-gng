@@ -2,14 +2,14 @@
 
 A modern Vue 3 application building on top of 
 [EEN Login](https://github.com/klaushofrichter/een-login) with additional 
-functionality for Google Firebase. All features of EEN Login are preserved,
+functionality related to Google Firebase. All features of EEN Login are preserved,
 please refer to the README there for details. 
 
 This application is WIP, it integrates access to a Google Firebase data base to 
-capture content from EEN Cameras for further processing. Further details will be 
+capture content from EEN Cameras for further processing. More details will be 
 provded at a later point in time. 
 
-This application uses EEN APIs but is otherwise not associated to EEN or maintained by EEN. 
+This application uses [EEN APIs](https://developer.eagleeyenetworks.com/) but is otherwise not associated to [EEN](https://www.een.com/) or maintained by EEN. 
 
 
 ![GH Pages Deployment](https://github.com/klaushofrichter/een-gng/actions/workflows/deploy.yml/badge.svg?event=push&label=GH%20Pages) 
@@ -19,6 +19,9 @@ This application uses EEN APIs but is otherwise not associated to EEN or maintai
 ![GH Pages Version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fklaushofrichter%2Feen-gng%2Frefs%2Fheads%2Fgh-pages%2Fpackage.json&query=version&label=gh-pages&color=%2333ca55)
 
 <div align="center"><sub>The badges are in part powered by <a href="https://shields.io">Shields.io</a></sub></div>
+
+## Deployment
+This application may be hosted at Github Pages. Visit [EEN-GNG](https://klaushofrichter.github.io/een-gng) or see the system status for this and other applications [here](https://stats.uptimerobot.com/8tOmmY5B64).
 
 ## Development 
 
@@ -141,9 +144,9 @@ The application employs **defense-in-depth** security with multiple layers:
        │ 2. Access Token   │                      │                     │
        │◄──────────────────┤                      │                     │
        │                   │                      │                     │
-       │ 3. Request Custom Token                   │                     │
+       │ 3. Request Custom Token                  │                     │
        │   (userId, email, token, baseUrl)        │                     │
-       ├──────────────────────────────────────────►│                     │
+       ├─────────────────────────────────────────►│                     │
        │                   │                      │                     │
        │                   │ 4. Verify Email      │                     │
        │                   │   /api/v3.0/users/self                     │
@@ -154,9 +157,9 @@ The application employs **defense-in-depth** security with multiple layers:
        │                   │                      │                     │
        │ 6. Firebase Custom Token                 │                     │
        │   (only if email matches)                │                     │
-       │◄──────────────────────────────────────────┤                     │
+       │◄─────────────────────────────────────────┤                     │
        │                   │                      │                     │
-       │ 7. Authenticated Requests                 │                     │
+       │ 7. Authenticated Requests                │                     │
        ├───────────────────────────────────────────────────────────────►│
 ```
 
