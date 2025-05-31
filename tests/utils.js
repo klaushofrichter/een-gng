@@ -79,6 +79,10 @@ export async function loginWithEEN(page) {
   // Click next
   await page.getByRole('button', { name: 'Next' }).click()
 
+  // wait for 1 second
+  console.log('🔑 Waiting for 1 second')
+  await page.waitForTimeout(1000)
+
   // Fill password
   console.log('🔑 Filling password')
   const passwordInput = page.locator('#authentication--input__password')
