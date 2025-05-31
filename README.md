@@ -11,6 +11,15 @@ provded at a later point in time.
 
 This application uses EEN APIs but is otherwise not associated to EEN or maintained by EEN. 
 
+
+![GH Pages Deployment](https://github.com/klaushofrichter/een-gng/actions/workflows/deploy.yml/badge.svg?event=push&label=GH%20Pages) 
+![CodeQL Check](https://github.com/klaushofrichter/een-gng/actions/workflows/codeql.yml/badge.svg?label=CodeQL) 
+![Dev Version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fklaushofrichter%2Feen-gng%2Frefs%2Fheads%2Fdevelop%2Fpackage.json&query=version&label=develop&color=%2333ca55) 
+![Prod Version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fklaushofrichter%2Feen-gng%2Frefs%2Fheads%2Fproduction%2Fpackage.json&query=version&label=prod&color=%2333ca55) 
+![GH Pages Version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fklaushofrichter%2Feen-gng%2Frefs%2Fheads%2Fgh-pages%2Fpackage.json&query=version&label=gh-pages&color=%2333ca55)
+
+<div align="center"><sub>The badges are in part powered by <a href="https://shields.io">Shields.io</a></sub></div>
+
 ## Development 
 
 ### Node.js Version Requirements
