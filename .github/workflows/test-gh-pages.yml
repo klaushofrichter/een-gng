@@ -16,6 +16,8 @@ jobs:
 
   determine-runner:
     runs-on: ubuntu-latest # This job uses a GitHub-hosted runner to determine the primary runner
+    permissions:
+      actions: read
     outputs:
       runner: ${{ steps.set-runner.outputs.use-runner }}
     steps:
