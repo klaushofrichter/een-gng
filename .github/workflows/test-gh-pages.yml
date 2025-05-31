@@ -13,32 +13,10 @@ on:
       - production
 
 jobs:
-
-  determine-runner:
-    runs-on: ubuntu-latest # This job uses a GitHub-hosted runner to determine the primary runner
-    permissions:
-      actions: read
-    outputs:
-      runner: ${{ steps.set-runner.outputs.use-runner }}
-    steps:
-      - name: Determine which runner to use
-        id: set-runner
-        uses: jimmygchen/runner-fallback-action@v1
-        with:
-          primary-runner: "self-hosted,linux" # Labels for your self-hosted runner(s)
-          fallback-runner: "ubuntu-latest"    # The GitHub-hosted runner to use as fallback
-          github-token: ${{ secrets.GITHUB_TOKEN }} # Required to check runner status
-
   test:
-    needs: determine-runner # This job depends on the output of the previous job
-    runs-on: ${{ fromJson(needs.determine-runner.outputs.runner) }} # Use the determined runner
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-
-      - name: Show Runner
-        run: |
-          echo "Runner: ${{ fromJson(needs.determine-runner.outputs.runner) }}"
-          echo "Runner Label: ${{ needs.determine-runner.outputs.runner }}"
 
       - uses: actions/checkout@v4
         with:
