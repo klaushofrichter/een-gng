@@ -1,0 +1,27 @@
+name: Prevent Production to Develop Merge
+
+on:
+  pull_request:
+    branches:
+      - develop # This workflow runs on PRs targeting the develop branch
+    types: [opened, synchronize, reopened] # Run when a PR is opened, updated, or reopened
+
+jobs:
+  check_source_branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if source branch is 'production'
+        run: |
+          SOURCE_BRANCH="${{ github.head_ref }}"
+          TARGET_BRANCH="${{ github.base_ref }}"
+          
+          echo "Source Branch: $SOURCE_BRANCH"
+          echo "Target Branch: $TARGET_BRANCH"
+
+          if [[ "$SOURCE_BRANCH" == "production" && "$TARGET_BRANCH" == "develop" ]]; then
+            echo "::error::Merging 'production' branch into 'develop' is not allowed by this repository's branching strategy."
+            echo "Please ensure you are following the correct workflow (e.g., merging feature branches to develop, or develop to production for releases)."
+            exit 1
+          else
+            echo "Source branch check passed. Proceeding with merge checks."
+          fi
