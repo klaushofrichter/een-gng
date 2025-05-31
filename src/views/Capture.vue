@@ -101,6 +101,7 @@
   <CreateCaptureModal
     :show="showCreateModal"
     :user-email="eenAuthStore.userProfile?.email"
+    :existing-captures="captures"
     @close="closeCreateModal"
     @create="handleCreateCapture"
   />

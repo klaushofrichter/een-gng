@@ -52,9 +52,16 @@
               v-model="formData.name"
               type="text"
               required
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              class="w-full px-3 py-2 border rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              :class="{
+                'border-red-500': nameError,
+                'border-gray-300 dark:border-gray-600': !nameError
+              }"
               placeholder="Enter capture name"
             />
+            <p v-if="nameError" class="mt-1 text-sm text-red-600 dark:text-red-400">
+              {{ nameError }}
+            </p>
           </div>
 
           <!-- Description (Editable) -->
@@ -294,6 +301,10 @@ const props = defineProps({
   userEmail: {
     type: String,
     default: ''
+  },
+  existingCaptures: {
+    type: Array,
+    default: () => []
   }
 })
 
@@ -329,13 +340,17 @@ const calculatedImageCount = ref(0)
 const imageCountWarning = ref('')
 const timeRangeError = ref('')
 
+// Name uniqueness validation
+const nameError = ref('')
+
 // Computed properties
 const isFormValid = computed(() => {
   return formData.value.name.trim() && 
          formData.value.cameraId.trim() && 
          formData.value.startDate.trim() && 
          calculatedImageCount.value <= 3000 && 
-         !timeRangeError.value
+         !timeRangeError.value &&
+         !nameError.value
 })
 
 // Helper: Downsample image to 320px width and return base64
@@ -438,6 +453,24 @@ function validateTimeRange() {
   }
 }
 
+// Validate name uniqueness
+function validateNameUniqueness() {
+  nameError.value = ''
+  
+  if (!formData.value.name.trim()) {
+    return
+  }
+  
+  const trimmedName = formData.value.name.trim()
+  const isDuplicate = props.existingCaptures.some(capture => 
+    capture.name && capture.name.trim().toLowerCase() === trimmedName.toLowerCase()
+  )
+  
+  if (isDuplicate) {
+    nameError.value = 'A capture with this name already exists. Please choose a different name.'
+  }
+}
+
 // Reset form data
 function resetForm() {
   formData.value = {
@@ -466,6 +499,7 @@ function resetForm() {
   calculatedImageCount.value = 0
   imageCountWarning.value = ''
   timeRangeError.value = ''
+  nameError.value = ''
 }
 
 // Handle backdrop clicks
@@ -542,6 +576,11 @@ watch(() => formData.value.cameraId, async (newCameraId) => {
     liveImageThumbnail.value = null
   }
 }, { debounce: 500 })
+
+// Watch for name changes to validate uniqueness
+watch(() => formData.value.name, () => {
+  validateNameUniqueness()
+}, { debounce: 300 })
 
 // Watch for duration and interval changes to recalculate image count
 watch([
