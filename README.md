@@ -1,442 +1,665 @@
-# EEN Login Application
+# EEN Grab-and-Go Application
 
-A modern Vue 3 application demonstrating secure authentication 
-with [Eagle Eye Networks](https://www.een.com/) (EEN) services 
-using OAuth2. The application provides two proxy implementations for handling the OAuth flow securely:
-1. A Cloudflare Worker implementation for production deployments
-2. A built-in Vite plugin proxy for local development without third-party dependencies
+A modern Vue 3 application building on top of 
+[EEN Login](https://github.com/klaushofrichter/een-login) with additional 
+functionality for Google Firebase. All features of EEN Login are preserved,
+please refer to the README there for details. 
 
-This dual-proxy approach allows developers to start working immediately with the local proxy while providing a production-ready Cloudflare Worker implementation when needed. The application also provides a direct access method for scenarios where an access token and API endpoint details are already known.
+This application is WIP, it integrates access to a Google Firebase data base to 
+capture content from EEN Cameras for further processing. Further details will be 
+provded at a later point in time. 
 
-This project serves as a foundation or starting point for applications needing to integrate with Eagle
-Eye Networks services securely. There is no guarantee for current or future functionality, or forward or backward compatibility. 
-The application uses the EEN APIs, but is otherwise not supported 
-by Eagle Eye Networks. Visit the [Eagle Eye Networks Developer Portal](https://developer.eagleeyenetworks.com/)
-for more information about the Eagle Eye Networks APIs. 
+This application uses EEN APIs but is otherwise not associated to EEN or maintained by EEN. 
 
+## Development 
 
-![GH Pages Deployment](https://github.com/klaushofrichter/een-login/actions/workflows/deploy.yml/badge.svg?event=push&label=GH%20Pages) 
-![CodeQL Check](https://github.com/klaushofrichter/een-login/actions/workflows/codeql.yml/badge.svg?label=CodeQL) 
-![Dev Version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fklaushofrichter%2Feen-login%2Frefs%2Fheads%2Fdevelop%2Fpackage.json&query=version&label=develop&color=%2333ca55) 
-![Prod Version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fklaushofrichter%2Feen-login%2Frefs%2Fheads%2Fproduction%2Fpackage.json&query=version&label=prod&color=%2333ca55) 
-![GH Pages Version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fklaushofrichter%2Feen-login%2Frefs%2Fheads%2Fgh-pages%2Fpackage.json&query=version&label=gh-pages&color=%2333ca55)
+### Node.js Version Requirements
+This project requires **Node.js 20.19.0 or higher**. We recommend using [nvm](https://github.com/nvm-sh/nvm) to manage Node.js versions.
 
-## Features
-
--   **Secure EEN OAuth2 Authentication:** Implements the standard OAuth2 Authorization Code flow using proxies to protect secrets.
--   **Direct Token Access:** Allows users to log in directly by providing an Access Token, Base URL, and Port.
--   **Modern Frontend Stack:** Built with Vue 3 (Composition API), Vite, Pinia, and Tailwind CSS.
--   **Backend Proxy:** Includes a Cloudflare Worker (`./cloudflare`) for secure OAuth handling and a local Vite solution.
--   **Responsive Design:** Adapts to various screen sizes.
--   **State Management:** Uses Pinia (`authStore`, `themeStore`, etc) for managing application state predictably.
--   **Routing:** Implements protected routes using Vue Router and navigation guards.
--   **User Profile Display:** Shows basic user information and allows access to system information.
--   **Theme Switching:** Supports Light, Dark, and System themes with persistence.
--   **Logout Flow:** Includes a countdown modal with options to cancel or logout immediately.
--   **Testing:** Comes with Playwright end-to-end tests covering key user flows with focus on authentication.
-
-## Technology Stack
-
--   **Frontend:** Vue 3, Vite, Pinia, Vue Router, Tailwind CSS
--   **Authentication:** OAuth2 (Authorization Code Grant), Eagle Eye Networks API
--   **Backend Proxy:** Cloudflare Workers
--   **State Persistence:** `localStorage`
--   **Testing:** Playwright
--   **CI/CD:** Github based CI/CD pipeline including deployment at Github Pages
-
-## Dual Proxy Implementation
-
-This application provides two different proxy implementations for handling the OAuth flow:
-
-### 1. Vite Plugin Proxy (Development)
-- Perfect for local development and testing
-- Built directly into the Vite development server
-- No need for external services or deployments
-- Implements the same OAuth flow as the Cloudflare Worker
-- Stores refresh tokens in memory (development only)
-- Located in `vite.config.js`
-
-### 2. Cloudflare Worker Proxy (Production)
-- Recommended for production deployments
-- Provides secure, serverless backend functionality
-- Handles OAuth token exchange and refresh token management
-- Stores secrets and refresh tokens securely in Cloudflare's infrastructure
-- Requires a Cloudflare account and worker deployment
-- Located in `./cloudflare/src/index.js`
-
-Both implementations provide identical functionality and API endpoints, making them interchangeable from the frontend's perspective. 
-The frontend code automatically adapts to whichever proxy is configured via the `VITE_AUTH_PROXY_URL` environment variable.
-
-> **Development Tip**: Start with the Vite Plugin Proxy for local development. When ready for production, deploy the Cloudflare Worker and update your environment configuration accordingly.
-
-## Prerequisites
-
--   Node.js (v18 or higher recommended)
--   npm or yarn
--   An Eagle Eye Networks (EEN) Developer Account:
-    -   Create an account at [EEN Developer Portal](https://developer.eagleeyenetworks.com/docs/getting-started#get-an-account)
-    -   Create Client Credentials (OAuth API Key) in the [My Application section](https://developer.eagleeyenetworks.com/my-apps)
-    -   Configure the **Redirect URI** in your EEN application settings to exactly match your development URL (e.g., `http://127.0.0.1:3333`)
-    -   Note: The redirect URI must match exactly - variations like `https://127.0.0.1:3333`, `http://localhost:3333`, or trailing slashes will not work
-    -   For production deployments, you'll need to [whitelist your domain for CORS](https://developer.eagleeyenetworks.com/docs/getting-started#cors-domain-whitelisting) by contacting EEN support
--   Cloudflare Account (for deploying the included Worker proxy)
--   Wrangler CLI (for deploying the Cloudflare Worker): `npm install -g wrangler`
-
-> **Development Tip**: While this application provides both local and production-ready proxy implementations, you still need valid EEN Client Credentials for development. These credentials are used differently in development (stored in `.env`) versus production (stored in Cloudflare Worker secrets).
-
-## Setup
-
-This setup involves configuring both the frontend Vue application and deploying the Cloudflare Worker proxy.
-
-**1. Clone the repository:**
-   ```bash
-   git clone git@github.com:klaushofrichter/een-login.git
-   cd een-login
-   ```
-
-**2. Configure Frontend Application:**
-   -   Install frontend dependencies:
-       ```bash
-       npm install
-       # or
-       yarn install
-       ```
-   -   Create a `.env` file in the **root** directory. Add the following variables:
-       ```env
-       # === Frontend Configuration ===
-       # Your EEN Application Client ID (needed by frontend to initiate login)
-       VITE_EEN_CLIENT_ID=YOUR_EEN_CLIENT_ID
-
-       # The URL of your DEPLOYED Cloudflare Worker (from step 3)
-       VITE_AUTH_PROXY_URL=https://your-worker-name.your-account.workers.dev
-
-       # === E2E Testing Configuration (Optional) ===
-       TEST_USER=your_test_een_username@example.com
-       TEST_PASSWORD=your_test_een_password
-       ```
-       *   Replace `YOUR_EEN_CLIENT_ID` with your EEN Client ID.
-       *   Replace `VITE_AUTH_PROXY_URL` with your actual deployed worker URL.
-       *   **`VITE_EEN_CLIENT_SECRET`: This is **not used by the frontend application** when targeting the deployed worker (it lives securely in the worker environment). However, it **is required** in this `.env` file **if you use the `./cloudflare/deploy.sh` script** to push secrets to Cloudflare.
-       *   Add `TEST_USER` and `TEST_PASSWORD` if you intend to run the full end-to-end tests.
-
-**3. Configure Cloudflare Worker:**
-   -   Navigate to the worker directory: `cd cloudflare`
-   -   Rename `wrangler.toml.example` to `wrangler.toml`.
-   -   Edit `wrangler.toml` and set your Cloudflare `account_id`.
-   -   Login to Cloudflare by calling `wrangler login`.
-   -   Configure secrets for the worker.  Use the Wrangler CLI:
-       ```bash
-       # Run these commands within the ./cloudflare directory
-       wrangler secret put EEN_CLIENT_ID
-       # Paste your EEN Client ID when prompted
-
-       wrangler secret put EEN_CLIENT_SECRET
-       # Paste your EEN Client Secret when prompted
-       ```
-       **These can also be stored in `.env`**. You can use the included script `./deploy.sh`
-       to push the secrets from the `.env` file to the Cloudflare worker. This also deploys
-       the worker itself.
-
-**4. Deploy Cloudflare Worker:**
-   Unless you use the above mentioned `./deploy.sh` script, please manually deploy the worker: 
-   ```bash
-   # Run this command within the ./cloudflare directory
-   wrangler deploy
-   ```
-   -   Note the URL of your deployed worker (e.g., `https://your-worker-name.your-account.workers.dev`). You will need this for the frontend configuration.
-
-**5. Start the development server:**
-   ```bash
-   npm run dev
-   # or
-   yarn dev
-   ```
-
-   The application will typically be available at `http://127.0.0.1:3333`.
-
-## Configuring the Authentication Proxy
-
-The application needs to communicate with an authentication proxy to handle the OAuth token exchange with Eagle Eye Networks securely. You can configure the application to use either a local proxy running within the Vite development server or a deployed Cloudflare Worker.
-
-This is controlled by the `VITE_AUTH_PROXY_URL` variable in your root `.env` file:
-
-*   **Using the Local Vite Proxy (for Development):**
-    *   Set `VITE_AUTH_PROXY_URL` to your local Vite server address (e.g., `http://127.0.0.1:3333`).
-    *   **This is the default behavior if `VITE_AUTH_PROXY_URL` is not set.**
-    *   Requires the following in the `.env` file:
-        *   `VITE_EEN_CLIENT_ID`
-        *   `VITE_EEN_CLIENT_SECRET`
-    *   Example (`.env`):
-        ```env
-        # Required for Local Vite Proxy:
-        VITE_EEN_CLIENT_ID=YOUR_EEN_CLIENT_ID
-        VITE_EEN_CLIENT_SECRET=YOUR_EEN_CLIENT_SECRET
-        # Set to local server (or leave unset to default to local):
-        VITE_AUTH_PROXY_URL=http://127.0.0.1:3333
-        ```
-    *   When configured this way, the frontend will make requests to `/proxy/getAccessToken` and `/proxy/refreshAccessToken` on the Vite server, which are handled by the built-in plugin in `vite.config.js`. 
-
-*   **Using the Deployed Cloudflare Worker (Recommended for Production / Testing Deployment):**
-    *   Set `VITE_AUTH_PROXY_URL` to the full URL of your deployed Cloudflare worker.
-    *   Requires `VITE_EEN_CLIENT_ID` in the `.env` file (the frontend needs this).
-    *   The `VITE_EEN_CLIENT_SECRET` is **not used by the frontend application** itself, but **must be in `.env` if using the `./cloudflare/deploy.sh` script** to configure the worker.
-    *   Example:
-        ```env
-        VITE_EEN_CLIENT_ID=YOUR_EEN_CLIENT_ID
-        VITE_EEN_CLIENT_SECRET=YOUR_EEN_CLIENT_SECRET
-        VITE_AUTH_PROXY_URL=https://your-worker-name.your-account.workers.dev
-        ```
-    *   When configured this way, the frontend will make requests directly to `/getAccessToken` and `/refreshAccessToken` on your Cloudflare worker URL.
-
-**Important:**
-*   The `VITE_AUTH_PROXY_URL` variable **must be set** in your `.env` file for the authentication flow to function correctly.
-*   If `VITE_AUTH_PROXY_URL` is **not set**, the application will default to using the **Local Vite Proxy** (`http://127.0.0.1:3333`). Ensure `VITE_EEN_CLIENT_SECRET` is also set in `.env` in this case.
-*   Remember to **restart the Vite development server** after changing the `.env` file for the changes to take effect.
-
-## Project Structure
-
-```
-een-login/
-├── cloudflare/        # Cloudflare Worker source code and config
-│   ├── src/
-│   │   └── index.js   # Worker entry point/logic
-│   ├── wrangler.toml  # Worker configuration & secrets bindings
-│   └── package.json   # Worker dependencies (if any)
-├── public/            # Static assets directly served
-├── scripts/           # Build/utility scripts (version bumping, etc.)
-├── src/               # Frontend Vue application source
-│   ├── assets/        # Processed assets (CSS, images)
-│   ├── components/    # Reusable Vue components (if any were created)
-│   ├── constants.js   # Application-wide constants (e.g., APP_NAME)
-│   ├── router/        # Vue Router configuration (routes, navigation guards)
-│   ├── services/      # Business logic, API interactions (auth.js, user.js)
-│   ├── stores/        # Pinia state management (auth.js, theme.js)
-│   ├── views/         # Page-level components (Login.vue, Home.vue, etc.)
-│   ├── App.vue        # Root Vue component (layout, nav, router-view)
-│   └── main.js        # Application entry point (Vue app creation, plugins)
-├── tests/             # Playwright end-to-end tests (auth.spec.js)
-├── .env               # Frontend environment variables (local only, DO NOT COMMIT)
-├── .env.example       # Example environment variables file
-├── .eslintrc.cjs      # ESLint configuration
-├── .gitignore         # Git ignore rules
-├── .prettierrc.json   # Prettier configuration
-├── index.html         # Main HTML entry point
-├── LICENSE            # Project license (MIT)
-├── package.json       # Project metadata and dependencies
-├── playwright.config.js # Playwright test configuration
-├── postcss.config.js  # PostCSS configuration
-├── README.md          # This file
-├── tailwind.config.js # Tailwind CSS configuration
-└── vite.config.js     # Vite configuration
+#### Quick Setup with Helper Script
+```bash
+# Run the setup script to automatically configure Node.js
+source scripts/setup-node.sh
 ```
 
--   **`cloudflare/`:** Contains the source code and configuration (`wrangler.toml`) for the Cloudflare Worker acting as the secure OAuth proxy.
--   **`src/services`:** Interacts with the deployed Cloudflare Worker (`VITE_AUTH_PROXY_URL`) for authentication operations.
--   **`src/stores`:** Houses Pinia stores. `authStore` manages the access token received *from* the worker.
+#### Manual Setup with nvm
+1. Install nvm if you haven't already: [nvm installation guide](https://github.com/nvm-sh/nvm#installing-and-updating)
+2. Install and use the correct Node version:
+   ```bash
+   # Install Node 20.19.0 (if not already installed)
+   nvm install 20.19.0
+   
+   # Use Node 20.19.0 (reads from .nvmrc file)
+   nvm use
+   
+   # Verify correct version
+   node --version  # Should output v20.19.0
+   ```
 
-## Key Components Explained
+#### Checking Node Version
+You can verify your Node.js version meets the requirements:
+```bash
+# Check if your Node version is compatible
+npm run check-node
+```
 
--   **`cloudflare/src/index.js` (Worker):**
-    -   Handles requests from the frontend for `/api/auth/callback` and `/api/auth/refresh`.
-    -   Securely uses `EEN_CLIENT_ID` and `EEN_CLIENT_SECRET` (from worker secrets) to talk to EEN.
-    -   Manages refresh token storage and usage.
--   **`stores/auth.js` (Pinia Store - Frontend):**
-    -   Manages the user's authentication state within the browser (access token, user profile).
-    -   Provides actions to initiate login, complete login (storing the token received from the worker), logout, and trigger token refresh via the worker.
--   **`services/auth.js` (Frontend):**
-    -   Constructs the initial EEN OAuth URL.
-    -   Sends the authorization `code` to the `/api/auth/callback` endpoint of the deployed Cloudflare Worker.
-    -   Calls the `/api/auth/refresh` endpoint of the worker when a token refresh is needed.
+#### Alternative: Manual Installation
+If you prefer not to use nvm, ensure you have Node.js 20.19.0+ installed from [nodejs.org](https://nodejs.org/).
 
-## Authentication Flow (with Included Cloudflare Worker Proxy)
+### Running Tests
+The project includes end-to-end tests using Playwright:
 
-This flow uses the included Cloudflare Worker in `./cloudflare` for enhanced security.
+```bash
+# Run all tests (development mode)
+npm test
 
-1.  User clicks "Sign in with Eagle Eye Networks".
-2.  Frontend redirects to EEN OAuth server (using `VITE_EEN_CLIENT_ID`).
-3.  User logs into EEN.
-4.  EEN redirects back to frontend (`VITE_REDIRECT_URI`) with an authorization `code`.
-5.  Frontend (`Login.vue`) sends the `code` to the **Deployed Cloudflare Worker**'s `/api/auth/callback` endpoint (using `VITE_AUTH_PROXY_URL`).
-6.  The **Cloudflare Worker** (`cloudflare/src/index.js`):
-    a. Receives the `code`.
-    b. Makes a secure request to EEN's token endpoint using the `code` and the `EEN_CLIENT_ID`, `EEN_CLIENT_SECRET` configured in the Worker secrets.
-    c. Receives `access_token` and `refresh_token`.
-    d. Securely stores the `refresh_token` (e.g., using KV and the `REFRESH_TOKEN_SECRET`).
-    e. Returns **only the `access_token`** to the frontend.
-7.  Frontend (`services/auth.js`) receives the `access_token`.
-8.  `access_token` is stored in the `authStore`.
-9.  User profile is fetched (`userService.getUserProfile`).
-10. User data stored in `authStore`.
-11. User redirected to `/home`.
+# Run specific test
+npx playwright test --grep "ESC key closes modals"
 
-### Token Refresh (with Worker)
+# Run tests with UI
+npm run test:ui
 
-1.  Frontend needs a new token (e.g., `authStore` action triggered before API call).
-2.  Frontend calls the **Deployed Cloudflare Worker**'s `/api/auth/refresh` endpoint.
-3.  The **Cloudflare Worker**:
-    a. Retrieves the stored `refresh_token` for the user session.
-    b. Makes a secure request to EEN using the `refresh_token` grant and worker secrets.
-    c. Gets a new `access_token` (and possibly a new `refresh_token`).
-    d. Updates stored `refresh_token` if necessary.
-    e. Returns the new `access_token` to the frontend.
-4.  Frontend updates the `access_token` in `authStore`.
+# Run tests in headed mode (see browser)
+npm run test:headed
 
-### Direct Access Flow
+# Test in CI-like environment locally (mimics GitHub Actions)
+npm run test:ci
+```
 
-(Remains the same - bypasses OAuth and worker proxy)
+#### Code Quality
 
-## Cloudflare Worker OAuth Proxy (Included)
+The project uses ESLint 9 with flat config for code quality and Prettier for formatting:
 
-This application includes a Cloudflare Worker implementation (`./cloudflare`) designed to act as a secure proxy for the OAuth flow, significantly enhancing security compared to handling the token exchange directly in the frontend.
+```bash
+# Run ESLint and auto-fix issues
+npm run lint
 
--   **Purpose:** Intermediates communication between the frontend SPA and EEN, protecting sensitive credentials.
--   **Included Functionality:**
-    -   Handles the `/api/auth/callback` endpoint to exchange the authorization code for tokens using secrets configured *only* in the worker environment.
-    -   Handles the `/api/auth/refresh` endpoint to securely use the refresh token (stored server-side by the worker) to obtain new access tokens.
-    -   Requires deployment using Wrangler CLI and secure configuration of `EEN_CLIENT_ID`, `EEN_CLIENT_SECRET`, and `REFRESH_TOKEN_SECRET` via `wrangler secret put`.
--   **Benefits:**
-    -   **Client Secret Protection:** The `client_secret` never reaches the browser.
-    -   **Refresh Token Security:** Refresh tokens are managed securely by the worker, not stored in the browser.
+# Check for ESLint issues without fixing
+npm run lint:check
 
-**Configuration:** Ensure the frontend's `.env` file has the correct `VITE_AUTH_PROXY_URL` pointing to your *deployed* worker URL. The functions in `src/services/auth.js` are designed to interact with these worker endpoints.
+# Format code with Prettier
+npm run format
+```
 
-## Running Tests
+#### Troubleshooting CI Test Failures
 
-This project uses Playwright for end-to-end testing.
+If tests fail in GitHub Actions but work locally:
 
-1.  **Ensure Test Credentials:** Make sure you have added valid `TEST_USER` and `TEST_PASSWORD` to your frontend `.env` file if you want to run the full login flow test.
-2.  **Run Tests:**
-    ```bash
-    # Run all tests in headless mode
-    npm run test
+1. **Test locally in CI mode** to replicate the issue:
+   ```bash
+   npm run test:ci
+   ```
 
-    # Run tests with the Playwright UI (useful for debugging)
-    npm run test:ui
+2. **Check environment variables** - Ensure all required secrets are set in GitHub:
+   - `VITE_EEN_CLIENT_ID`
+   - `VITE_EEN_CLIENT_SECRET` 
+   - `VITE_REDIRECT_URI`
+   - `TEST_USER`
+   - `TEST_PASSWORD`
+   - Firebase configuration secrets (all `VITE_FIREBASE_*` variables)
 
-    # Run tests in headed mode (shows browser window)
-    npm run test:headed
+3. **Review test artifacts** - GitHub Actions uploads:
+   - Playwright HTML reports
+   - Test videos and screenshots
+   - Console logs for debugging
 
-    # Run tests in debug mode
-    npm run test:debug
-    ```
+## Security Implementation
 
-The tests cover:
--   Login page element rendering and styling.
--   Direct Access page element rendering and styling.
--   Full EEN OAuth login flow (requires test credentials).
--   Navigation between authenticated pages (Home, Profile, About, Settings).
--   Theme switching functionality.
--   Logout flow (including modal interactions and redirection).
--   Direct Access login flow using credentials captured during the OAuth test.
+This application implements a comprehensive multi-layered security architecture that protects against various attack vectors including XSS, injection attacks, and unauthorized access. The security implementation includes domain restrictions, authentication enforcement, data ownership validation, comprehensive input validation, and Content Security Policy.
 
-## Available Scripts
+### 🔒 Security Architecture Overview
 
--   `npm run dev`: Start frontend development server.
--   `npm run build`: Build frontend for production.
--   `npm run preview`: Preview frontend production build.
--   `npm run lint`: Lint frontend code.
--   `npm run format`: Format frontend code.
--   `npm run test`: Run frontend Playwright tests (headless).
--   `npm run test:ui`: Run Playwright tests with UI mode.
--   `npm run test:headed`: Run Playwright tests in headed mode.
--   `npm run test:debug`: Run Playwright tests in debug mode.
--   `npm run version:patch`: Increment frontend version.
--   **(In ./cloudflare directory)** `wrangler deploy`: Deploy the Cloudflare worker.
--   **(In ./cloudflare directory)** `wrangler dev`: Run the Cloudflare worker locally for development/testing.
+The application employs **defense-in-depth** security with multiple layers:
 
-## Security Considerations
+1. **Content Security Policy (CSP)** - Browser-level XSS protection
+2. **Input Sanitization** - Multi-pass sanitization against injection attacks  
+3. **Domain Restrictions** - Firebase access limited to authorized domains
+4. **Authentication Flow** - EEN OAuth + Firebase custom tokens with email verification
+5. **Firebase Security Rules** - Database and storage access controls
+6. **Rate Limiting** - Protection against abuse and DoS attacks
 
--   **Client Secret:** Protected within the Cloudflare Worker environment secrets. **Do not** add it to the frontend `.env` file.
--   **Refresh Token:** Managed securely by the Cloudflare Worker. **Do not** attempt to store or handle refresh tokens in the frontend browser storage.
--   **Access Token:** Stored in the frontend's memory (Pinia store). While less sensitive than the refresh token, minimize its exposure and rely on short expiry times enforced by EEN.
--   **Worker Security:** Ensure your worker code handles errors correctly and doesn't inadvertently log sensitive information.
--   **HTTPS:** Essential for both the frontend application and the Cloudflare Worker URL.
+### Authentication Flow
 
+```
+┌─────────────┐    ┌──────────────┐    ┌─────────────────┐    ┌──────────────┐
+│   Client    │    │     EEN      │    │ Firebase Cloud  │    │   Firebase   │
+│ Application │    │   API/OAuth  │    │   Functions     │    │   Database   │
+└─────────────┘    └──────────────┘    └─────────────────┘    └──────────────┘
+       │                   │                      │                     │
+       │ 1. OAuth Login    │                      │                     │
+       ├──────────────────►│                      │                     │
+       │                   │                      │                     │
+       │ 2. Access Token   │                      │                     │
+       │◄──────────────────┤                      │                     │
+       │                   │                      │                     │
+       │ 3. Request Custom Token                   │                     │
+       │   (userId, email, token, baseUrl)        │                     │
+       ├──────────────────────────────────────────►│                     │
+       │                   │                      │                     │
+       │                   │ 4. Verify Email      │                     │
+       │                   │   /api/v3.0/users/self                     │
+       │                   │◄─────────────────────┤                     │
+       │                   │                      │                     │
+       │                   │ 5. Email Response    │                     │
+       │                   ├─────────────────────►│                     │
+       │                   │                      │                     │
+       │ 6. Firebase Custom Token                 │                     │
+       │   (only if email matches)                │                     │
+       │◄──────────────────────────────────────────┤                     │
+       │                   │                      │                     │
+       │ 7. Authenticated Requests                 │                     │
+       ├───────────────────────────────────────────────────────────────►│
+```
 
-## Slack Integration
+### Security Features
 
-This project integrates with Slack to notify you about important events, such as new production builds and workflow executions.
+#### 1. **Content Security Policy (CSP)**
 
-### Setup
+**Location**: `index.html`
+**Protection**: Browser-level XSS prevention
 
-1. **Create a Slack Webhook:**
-   - Go to [Slack.com](https://slack.com) and navigate to your workspace.
-   - Create a new webhook for a specific channel where you want to receive notifications.
-   - Copy the webhook URL provided by Slack.
+```html
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https: wss:; font-src 'self' data:;">
+```
 
-2. **Set Up GitHub Action Secret:**
-   - In your GitHub repository, go to **Settings** > **Secrets and variables** > **Actions**.
-   - Create a new secret named `GITHUB_WEBHOOK_URL` and paste the Slack webhook URL as the value.
+**Benefits**:
+- Prevents execution of malicious inline scripts
+- Restricts resource loading to trusted sources
+- Blocks unauthorized external connections
 
-### Notifications
+#### 2. **Comprehensive Input Sanitization**
 
-- **New Production Build:** You will receive a Slack message whenever a new production build is released.
-- **Workflow Execution:** You will also receive notifications when the `test-gh-pages.yml` workflow is executed.
+**Location**: `src/services/security.js`, `functions/index.js`
+**Protection**: Multi-pass sanitization against injection attacks
 
-This integration helps keep your team informed about important updates and changes in the project.
+**Key Features**:
+- **Iterative Multi-Pass Sanitization**: Uses do-while loops to handle overlapping attack patterns
+- **Global Regex Flags**: Ensures all occurrences are sanitized, not just the first
+- **Enhanced Event Handler Detection**: Improved pattern matching for HTML event attributes
 
+```javascript
+// Enhanced event handler sanitization
+function sanitizeEventHandlers(input) {
+  let result = input;
+  let previousResult;
+  
+  do {
+    previousResult = result;
+    // Enhanced pattern with positive lookahead instead of restrictive word boundaries
+    result = result.replace(/\bon[a-z0-9_]*(?=\W|$)/gi, '');
+    result = result.replace(/\bon[a-z0-9_]*=/gi, '');
+  } while (result !== previousResult);
+  
+  return result;
+}
+```
 
-## Extending the Application
+**Protected Patterns**:
+- JavaScript protocols (`javascript:`, `vbscript:`, `data:`)
+- HTML event handlers (`onclick`, `onload`, `onerror`, etc.)
+- Script tags and dangerous HTML elements
+- SQL injection patterns
+- Control characters and HTML entities
 
-This application does not provide a lot of functionality, it is intended as a framework for other
-applications. For example:
+**Bypass Prevention**:
+- Handles overlapping patterns like `javjavascript:ascript:alert(1)`
+- Removes event handlers with numbers/underscores: `on123=alert(1)`, `on_click=alert(1)`
+- Processes standalone dangerous patterns: `on=alert(1)`
 
--   **Adding New Pages/Views:** Change Views in `src/views` and extend the router. One example is 
-[here](https://github.com/klaushofrichter/een-capture), where an additional secure connection 
-to Firebase is added plus application logic.
--   **Modifying UI:** Add Views in `src/views` and Components in `src/components`
--   **Interacting with More EEN APIs:** Add functions in `src/services/` to make authenticated calls (using the access token from `authStore`)
--   **Testing:** Add tests in 'tests'
+#### 3. **Domain Restrictions**
 
-You may not need to change the proxy as this is usually doing only authentication. 
+**Firebase Configuration**: `src/firebase.js`
+**Storage Rules**: `storage.rules`
+**Firestore Rules**: `firestore.rules`
 
-However, you may want to stay connected to the original sources to be able to import any changes. 
-[Here is an overview to repository management strategies](repository-management.pdf) to accomplish this. 
-The document describes several strategies. The recommended strategy was tested and is called **Independent Repository with Upstream Tracking**. The idea is to include the original repository as upstream 
-source and merge the original repository when appropriate. Please read the document for details, here 
-is a summary of the steps. This assumes that the branch to merge is `develop` in both repositories. 
+**Authorized Domains**:
+- `http://localhost:3333` (development)
+- `http://127.0.0.1:3333` (development)
+- `https://klaushofrichter.github.io` (production)
 
-- create a new EMPTY repository in github
-- Create a Local Bare Clone of the Original Repository
-- Clone this new repository locally with this command
-`git clone --bare https://github.com/klaushofrichter/een-login.git een-login-original.git`
-- Push the Mirrored History to Your New Repository as mirror: 
-`git push --mirror https://github.com/YOUR_USERNAME/my-een-login-extended.git`
-- Remove the local repository that was cloned with --bare above
-- Clone the new repository again, but without --bare `git clone https://github.com/YOUR_USERNAME/YOUR_NEW_REPO.git`
-- Add the original repository as remote repo: `git remote add upstream-original https://github.com/klaushofrichter/een-login.git`
-- Do whatever work needs to be done in the new repository, including these steps: 
-  - Create the `.env` and all other configuration
-  - Change the app name and version number in `package.json`
-  - Change the app name also in `src/constants.js`
-  - Add features as desired.  
-- Commit your changes in the new repository
-- In order to get any changes that happened in the original sources, perform these steps
-  - `git checkout develop`
-  - `git pull origin develop`
-  - `git fetch upstream-original` - this imports the changes from the original
-    - if this fails, reimport the original: `git remote add upstream-original https://github.com/klaushofrichter/een-login.git`
-  - `git merge upstream-original/develop`
-  - resolve any conflicts, and add/commit any changes
-  - `git push origin develop` to push any files that have been changed
+```javascript
+// Firebase configuration with domain validation
+const allowedAuthDomains = [
+  'klaus-hofrichter-simple.firebaseapp.com',
+  'klaushofrichter.github.io'
+];
 
-More details and instructins are in the document. 
+// Validate auth domain
+if (!allowedAuthDomains.includes(authDomain)) {
+  throw new Error(`Invalid auth domain: ${authDomain}`);
+}
+```
 
+#### 4. **Email Verification Against Source of Truth**
 
-## Contributing
+**Location**: `functions/index.js`
+**Problem Solved**: Prevents token hijacking using stolen user information
 
-If you plan to contribute back to the original repository:
+**Implementation**:
+- Client provides: `eenUserId`, `eenUserEmail`, `eenAccessToken`, `eenBaseUrl`
+- Firebase function calls EEN API: `GET ${eenBaseUrl}/api/v3.0/users/self`
+- Compares API response email with provided email
+- Only creates Firebase token if emails match exactly (case-insensitive)
 
-1.  Check for existing issues or open a new issue to discuss your proposed changes.
-2.  Fork the repository.
-3.  Create your feature branch (`git checkout -b feature/your-feature-name`).
-4.  Commit your changes (`git commit -m 'Add some amazing feature'`). Ensure commit messages are descriptive.
-5.  Push to the branch (`git push origin feature/your-feature-name`).
-6.  Open a Pull Request, linking it to the relevant issue if applicable.
-7.  Ensure your code adheres to the existing style (ESLint, Prettier) and that tests pass.
+```javascript
+// Email verification with EEN API
+const eenApiResponse = await axios.get(`${eenBaseUrl}/api/v3.0/users/self`, {
+  headers: {
+    "Accept": "application/json",
+    "Authorization": `Bearer ${eenAccessToken}`,
+  },
+  timeout: 10000,
+});
 
-> **Note on Contributing**: This repository is intended to serve as a generic login framework for EEN applications. While forks are welcome for your own customization, pull requests should focus on enhancing the core authentication functionality, security, or developer experience. For application-specific features, we recommend cloning this repository as a starting point rather than forking.
+const eenApiEmail = eenApiResponse.data.email;
 
+if (eenApiEmail.toLowerCase() !== eenUserEmail.toLowerCase()) {
+  throw new HttpsError(
+    "permission-denied",
+    "Email verification failed: provided email does not match EEN user email"
+  );
+}
+```
+
+#### 5. **Firebase Security Rules**
+
+**Firestore Rules** (`firestore.rules`):
+```javascript
+// User data ownership validation
+function isValidUser(userId) {
+  return request.auth != null && 
+         request.auth.uid == userId && 
+         request.auth.token.eenUserEmail != null;
+}
+
+// Users can only access their own data
+match /users/{userId} {
+  allow read, write: if isValidUser(userId);
+}
+```
+
+**Storage Rules** (`storage.rules`):
+```javascript
+// Authenticated users can manage their capture images
+match /captures/{captureId}/{allPaths=**} {
+  allow read: if isAuthenticated();
+  allow write: if isAuthenticated() && isValidImageFile();
+  allow delete: if isAuthenticated();
+}
+
+function isValidImageFile() {
+  return request.resource.contentType.matches('image/.*') &&
+         request.resource.size < 10 * 1024 * 1024; // Max 10MB per image
+}
+```
+
+#### 6. **Rate Limiting and Timing Attack Protection**
+
+**Location**: `src/services/security.js`
+
+```javascript
+// Rate limiting for different operations
+checkRateLimit(operation, maxRequests = 100, windowMs = 60000) {
+  // Implements sliding window rate limiting
+}
+
+// Timing attack protection
+async hashCompare(provided, stored) {
+  // Constant-time comparison to prevent timing attacks
+}
+```
+
+#### 7. **Secure Parameter Validation**
+
+**Problem Solved**: Prevents injection attacks and ensures required security parameters
+
+```javascript
+// Required parameter validation with sanitization
+function validateAndSanitizeInput(params) {
+  const sanitized = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (typeof value === 'string') {
+      sanitized[key] = sanitizeInput(value);
+    } else {
+      sanitized[key] = value;
+    }
+  }
+  return sanitized;
+}
+```
+
+#### 8. **Session and Environment Validation**
+
+**Environment Variables**: Enhanced validation with domain checks
+**Session Management**: Secure token handling with automatic cleanup
+
+```javascript
+// Environment validation with domain restrictions
+function validateEnvironment() {
+  const requiredVars = ['VITE_FIREBASE_API_KEY', 'VITE_FIREBASE_AUTH_DOMAIN'];
+  for (const varName of requiredVars) {
+    if (!process.env[varName]) {
+      throw new Error(`Missing required environment variable: ${varName}`);
+    }
+  }
+}
+```
+
+### Security Benefits
+
+1. **XSS Prevention**: CSP and input sanitization prevent script injection
+2. **Token Hijacking Protection**: Email verification ensures legitimate access
+3. **Real-time Validation**: EEN token validation ensures current access rights
+4. **Injection Attack Prevention**: Multi-pass sanitization handles complex attack patterns
+5. **Domain Isolation**: Access restricted to authorized domains only
+6. **Data Ownership**: Users can only access their own data
+7. **Rate Limiting**: Protection against abuse and DoS attacks
+8. **Audit Trail**: Comprehensive logging for security monitoring
+
+### Security Incident Response
+
+**Monitoring Commands**:
+```bash
+# View Firebase function logs
+firebase functions:log --only createCustomToken
+
+# View security events
+grep "SECURITY" firebase-debug.log
+
+# Monitor authentication failures
+grep "authentication.*failed" application.log
+```
+
+**Key Security Events to Monitor**:
+- Email verification failures (potential attack attempts)
+- Multiple failed authentication attempts
+- Unusual access patterns from unauthorized domains
+- Input sanitization triggers (potential injection attempts)
+
+### Implementation Files
+
+- **Security Service**: `src/services/security.js` - Core security functions
+- **Firebase Auth**: `src/services/firebase-auth.js` - Client-side authentication
+- **Firebase Functions**: `functions/index.js` - Server-side token creation with email verification
+- **Firebase Rules**: `firestore.rules`, `storage.rules` - Database access controls
+- **CSP Policy**: `index.html` - Browser security headers
+
+### Compliance and Standards
+
+This implementation follows security best practices:
+- **OWASP Top 10** protection against common vulnerabilities
+- **Defense in Depth** with multiple security layers
+- **Principle of Least Privilege** in access controls
+- **Input Validation** at all entry points
+- **Secure by Default** configuration
+
+## EEN API Services
+
+This application provides a comprehensive set of service classes for interacting with Eagle Eye Networks (EEN) APIs. All services implement security validation, authentication checks, and error handling.
+
+### 🎥 Camera Service (`src/services/cameras.js`)
+
+**Purpose**: Manages camera information and device details through EEN Camera APIs.
+
+**Key Features**:
+- Camera details retrieval by ID
+- Automatic authentication validation
+- URL scheme security validation
+- Comprehensive error handling
+
+**Methods**:
+
+```javascript
+// Get camera details by ID
+const camera = await cameraService.getCameraById('camera-123')
+```
+
+**Example Response**:
+```javascript
+{
+  id: "camera-123",
+  name: "Front Door Camera",
+  status: "online",
+  // ... additional camera properties
+}
+```
+
+**Error Handling**:
+- Authentication validation (requires valid EEN login)
+- Camera not found (404) errors
+- Network and API failure handling
+
+### 📷 Media Service (`src/services/media.js`)
+
+**Purpose**: Handles live and recorded image retrieval from EEN cameras with optimized image processing.
+
+**Key Features**:
+- Live image capture from cameras
+- Historical image retrieval with timestamps
+- Base64 image conversion for web display
+- Automatic retry and error recovery
+- EEN timestamp and token handling
+
+**Methods**:
+
+#### Live Image Capture
+```javascript
+// Get live image from camera
+const result = await mediaService.getLiveImage('device-123', 'jpeg')
+// Returns: { image: "data:image/jpeg;base64,...", timestamp: "...", prevToken: "..." }
+```
+
+#### Historical Image Retrieval
+```javascript
+// Get recorded image at specific timestamp
+const result = await mediaService.getRecordedImage(
+  'device-123', 
+  '2024-01-15T10:30:00Z', 
+  'preview'
+)
+```
+
+**Image Processing**:
+- Automatic ArrayBuffer to Base64 conversion
+- Data URL generation for direct browser display
+- Optimized memory handling for large image sequences
+
+**Headers Handled**:
+- `X-Een-Timestamp`: EEN server timestamp for synchronization
+- `X-Een-PrevToken`: Token for efficient image sequencing
+
+### 👤 User Service (`src/services/user.js`)
+
+**Purpose**: Manages user profile information and account details from EEN APIs.
+
+**Key Features**:
+- User profile retrieval
+- Automatic authentication and base URL configuration
+- Axios-based HTTP client with security headers
+
+**Methods**:
+
+```javascript
+// Get current user profile
+const profile = await userService.getUserProfile()
+```
+
+**Example Response**:
+```javascript
+{
+  id: "user-123",
+  email: "user@example.com",
+  name: "John Doe",
+  // ... additional user properties
+}
+```
+
+### 🔧 API Utilities (`src/services/api.js`)
+
+**Purpose**: Provides foundational HTTP client creation and configuration for EEN API interactions.
+
+**Key Features**:
+- Authenticated API instance creation
+- OAuth proxy configuration for authentication flow
+- Centralized header and base URL management
+
+**Methods**:
+
+#### Authentication API Client
+```javascript
+// Create client for OAuth authentication
+const authApi = createAuthApi()
+```
+
+#### Authenticated API Client
+```javascript
+// Create client for EEN API calls
+const api = createApiInstance()
+const response = await api.get('/api/v3.0/cameras')
+```
+
+### 🏗️ Service Architecture
+
+All EEN API services follow a consistent architecture pattern:
+
+#### 1. **Singleton Pattern**
+```javascript
+// Each service exports both class and singleton instance
+export const cameraService = new CameraService()
+export { CameraService } // For testing/multiple instances
+```
+
+#### 2. **Security Integration**
+```javascript
+// URL validation on all requests
+if (!securityService.validateUrlScheme(requestUrl)) {
+  throw new Error('Invalid request URL scheme')
+}
+```
+
+#### 3. **Authentication Checks**
+```javascript
+// Consistent auth validation
+if (!authStore.isAuthenticated) {
+  throw new Error('Authentication required')
+}
+```
+
+#### 4. **Error Handling**
+```javascript
+// Standardized error handling with logging
+try {
+  // API call
+} catch (error) {
+  console.error('[ServiceName] Error:', error)
+  throw error
+}
+```
+
+### 📊 Usage Patterns
+
+#### Typical Camera Capture Flow
+```javascript
+// 1. Get camera details
+const camera = await cameraService.getCameraById(cameraId)
+
+// 2. Capture live image
+const liveImage = await mediaService.getLiveImage(cameraId)
+
+// 3. Get historical images for sequence
+const images = []
+for (const timestamp of timestamps) {
+  const image = await mediaService.getRecordedImage(cameraId, timestamp)
+  if (image.image) images.push(image)
+}
+```
+
+#### User Profile Integration
+```javascript
+// Get user profile for display
+const profile = await userService.getUserProfile()
+console.log(`Logged in as: ${profile.name} (${profile.email})`)
+```
+
+### 🔗 EEN API Endpoints Used
+
+The services interact with these EEN API endpoints:
+
+- **Cameras**: `GET /api/v3.0/cameras/{id}` - Camera details
+- **Live Images**: `GET /api/v3.0/media/liveImage.jpeg` - Real-time camera images
+- **Recorded Images**: `GET /api/v3.0/media/recordedImage.jpeg` - Historical images
+- **User Profile**: `GET /api/v3.0/users/self` - Current user information
+
+### 🛡️ Security Features
+
+All EEN API services include:
+
+- **Authentication Validation**: Ensures valid EEN OAuth tokens
+- **URL Scheme Validation**: Prevents protocol injection attacks
+- **Input Sanitization**: Protects against injection vulnerabilities
+- **Rate Limiting**: Built-in protection against API abuse
+- **Error Logging**: Security incident tracking and debugging
+
+### 🚀 Performance Optimizations
+
+- **Singleton Pattern**: Reduces memory overhead and initialization costs
+- **Base64 Conversion**: Optimized ArrayBuffer processing for images
+- **Automatic Retry Logic**: Built-in resilience for network failures
+- **Memory Management**: Efficient handling of large image sequences
+- **Async/Await**: Non-blocking operations for better user experience
+
+### 🧪 Testing Support
+
+All services are designed for easy testing:
+
+```javascript
+// Import class for unit testing
+import { CameraService } from '@/services/cameras'
+
+// Create test instance with mocked dependencies
+const testService = new CameraService()
+```
+
+**Mock-Friendly Design**:
+- Dependency injection support
+- Separated business logic from HTTP concerns
+- Comprehensive error scenarios for test coverage
+
+### 📝 Adding New EEN API Services
+
+When adding new EEN API functionality:
+
+1. **Follow the established pattern**: Use the existing services as templates
+2. **Include security validation**: All requests must validate URLs and authentication
+3. **Implement error handling**: Provide meaningful error messages and logging
+4. **Export both class and singleton**: Support both direct usage and testing
+5. **Document methods**: Include JSDoc comments for all public methods
+
+**Example New Service**:
+```javascript
+class DeviceService {
+  async getDeviceList() {
+    const authStore = useAuthStore()
+    
+    if (!authStore.isAuthenticated) {
+      throw new Error('Authentication required')
+    }
+    
+    const url = `${authStore.baseUrl}/api/v3.0/devices`
+    
+    if (!securityService.validateUrlScheme(url)) {
+      throw new Error('Invalid request URL scheme')
+    }
+    
+    // ... implementation
+  }
+}
+
+export const deviceService = new DeviceService()
+export { DeviceService }
+```
+
+This service architecture provides a robust, secure, and maintainable foundation for all EEN API interactions while ensuring consistency across the application.
 
 ## License
 

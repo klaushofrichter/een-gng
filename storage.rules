@@ -1,0 +1,50 @@
+rules_version = '2';
+
+// Firebase Storage Security Rules for EEN Capture Application
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Helper function to check if request comes from authorized domains
+    function isAuthorizedDomain() {
+      return request.headers.origin in [
+        'http://localhost:3333',
+        'http://127.0.0.1:3333',
+        'https://klaushofrichter.github.io'
+      ] || request.headers.origin == null; // Allow server-side requests
+    }
+    
+    // Simplified authentication check for debugging
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // More detailed authentication check (commented out for debugging)
+    function isFullyAuthenticated() {
+      return request.auth != null && 
+             request.auth.token.eenUserEmail != null &&
+             isAuthorizedDomain();
+    }
+    
+    // Helper function to validate image file types
+    function isValidImageFile() {
+      return request.resource.contentType.matches('image/.*') &&
+             request.resource.size < 10 * 1024 * 1024; // Max 10MB per image
+    }
+
+    // Allow authenticated users to manage their capture images
+    match /captures/{captureId}/{allPaths=**} {
+      // Allow read access to authenticated users
+      allow read: if isAuthenticated();
+      
+      // Allow write access for authenticated users creating image files
+      allow write: if isAuthenticated() && isValidImageFile();
+        
+      // Allow delete access for authenticated users
+      allow delete: if isAuthenticated();
+    }
+    
+    // Deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+} 

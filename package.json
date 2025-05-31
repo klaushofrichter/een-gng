@@ -1,29 +1,35 @@
 {
-  "name": "een-login",
-  "version": "0.1.92",
-  "lastCommit": "2025-05-30T21:38:04.998Z",
+  "name": "een-gng",
+  "version": "0.2.1",
+  "lastCommit": "2025-05-31T01:33:46.988Z",
   "private": true,
   "type": "module",
-  "base": "/een-login/",
+  "base": "/een-gng/",
   "scripts": {
     "dev": "vite",
     "build": "vite build && node scripts/prepare-dist-package.js",
     "preview": "vite preview",
-    "lint": "eslint . --fix",
-    "format": "prettier --write src/",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:ci": "playwright test --reporter=github",
+    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore",
+    "lint:check": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --ignore-path .gitignore",
+    "format": "prettier --write .",
+    "check-node": "node scripts/check-node-version.js",
+    "cleanup-captures": "node scripts/cleanup-captures.js",
     "version:patch": "node scripts/version-bump.js",
     "prepare": "husky",
     "gh-deploy": "gh-pages -d dist -f -m 'Deploy to GitHub Pages' -u 'Klaus Hofrichter <klaus@klaushofrichter.net>'",
     "gh-deploy-help": "gh-pages --help",
     "pre-commit": "npm run version:patch",
-    "test": "playwright test",
     "test-preview": "npm run build && npx playwright test",
-    "test:ui": "playwright test --ui",
-    "test:headed": "playwright test --headed",
-    "test:debug": "playwright test --debug"
+    "test:debug": "playwright test --debug",
+    "favicon": "node scripts/generate-favicon.js"
   },
   "dependencies": {
     "axios": "^1.6.7",
+    "firebase": "^11.7.1",
     "gh-pages": "^6.3.0",
     "pinia": "^2.1.7",
     "vue": "^3.4.15",
@@ -54,7 +60,7 @@
     "vue-eslint-parser": "^10.1.3"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=20.19.0"
   },
   "browserslist": [
     "> 1%",

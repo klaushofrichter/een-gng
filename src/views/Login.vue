@@ -50,6 +50,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { getAuthUrl, handleAuthCallback } from '../services/auth'
 import packageJson from '../../package.json'
 import { APP_NAME } from '../constants'
+import securityService from '../services/security'
 
 const router = useRouter()
 const route = useRoute()
@@ -65,6 +66,13 @@ const isProcessingCallback = ref(false)
 
 const handleLogin = () => {
   const url = getAuthUrl()
+  
+  // Validate URL scheme before redirecting
+  if (!securityService.validateUrlScheme(url)) {
+    console.error('🚫 Security: Blocked redirect to unsafe URL:', url)
+    return
+  }
+  
   // this will go to the to the EEN login page, and after login, the user will be redirected to the callback URL
   window.location.href = url
 }
@@ -81,9 +89,11 @@ const readmeUrl = computed(() =>
 )
 
 onMounted(async () => {
+  console.log('Login component mounted')
   const code = route.query.code
 
   if (code) {
+    console.log('Handling redirect back FROM EEN')
     // Handling the redirect back FROM EEN
     isProcessingCallback.value = true
     try {
@@ -135,6 +145,7 @@ onMounted(async () => {
     }
   } else {
     // Standard case: User navigated directly to Login page, show the button
+    console.log('Standard case: User navigated directly to Login page, show the button')
     document.title = `${APP_NAME} - Login`
     isProcessingCallback.value = false // Ensure loading state is off
   }

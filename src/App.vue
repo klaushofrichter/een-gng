@@ -56,6 +56,17 @@
                 Home
               </router-link>
               <router-link
+                to="/capture"
+                class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                :class="[
+                  route.path === '/capture'
+                    ? 'border-primary-500 text-gray-900 dark:text-gray-100'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600 hover:text-gray-700 dark:hover:text-gray-300'
+                ]"
+              >
+                Capture
+              </router-link>
+              <router-link
                 to="/profile"
                 class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
                 :class="[
@@ -164,6 +175,18 @@
             Home
           </router-link>
           <router-link
+            to="/capture"
+            class="block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
+            :class="[
+              route.path === '/capture'
+                ? 'bg-primary-50 dark:bg-primary-900 border-primary-500 text-primary-700 dark:text-primary-400'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:text-gray-700 dark:hover:text-gray-300'
+            ]"
+            @click="closeMobileMenu"
+          >
+            Capture
+          </router-link>
+          <router-link
             to="/profile"
             class="block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
             :class="[
@@ -200,7 +223,7 @@
             Settings
           </router-link>
           <button
-            class="w-full text-left border-transparent text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:text-gray-700 dark:hover:text-gray-300 block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
+            class="w-full text-left border-transparent text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:text-gray-400 hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:text-gray-700 dark:hover:text-gray-300 block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
             @click="handleLogoutAndCloseMenu"
           >
             Logout
@@ -233,7 +256,6 @@ import { APP_NAME } from './constants'
 // Route is used for navigation active classes
 const route = useRoute()
 // Router is used for programmatic navigation - though we use window.location directly in handleImmediateLogout
- 
 const router = useRouter()
 // Auth store is used for logout functionality
 const authStore = useAuthStore()
@@ -274,11 +296,19 @@ onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyDown)
 })
 
+// Add a function to clear persistent auth data
+function clearPersistentAuthData() {
+  localStorage.removeItem('eenBaseUrl');
+  localStorage.removeItem('eenToken');
+  localStorage.removeItem('eenUserProfile');
+}
+
 const handleLogout = async () => {
   isLoggingOut.value = true
   await authStore.logout(remaining => {
     logoutRemaining.value = remaining
   })
+  clearPersistentAuthData();
   // Hide the modal after logout completes
   isLoggingOut.value = false
 }
@@ -294,6 +324,7 @@ const handleImmediateLogout = async () => {
   isLoggingOut.value = false // Hide modal
   logoutRemaining.value = 8000 // Reset timer state just in case
   await authStore.logout() // Perform logout without delay
+  clearPersistentAuthData();
   // Navigate using router after logout is complete
   router.push('/')
 }

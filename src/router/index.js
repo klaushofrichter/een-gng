@@ -1,9 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { getAuthUrl } from '../services/auth'
+import securityService from '../services/security'
 
 // Define our list of valid routes for easier checking
-const validRoutes = ['home', 'about', 'profile', 'settings', 'direct']
+const validRoutes = ['home', 'about', 'profile', 'settings', 'direct', 'capture']
 
 const routes = [
   {
@@ -22,6 +23,12 @@ const routes = [
     path: '/home',
     name: 'Home',
     component: () => import('../views/Home.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/capture',
+    name: 'Capture',
+    component: () => import('../views/Capture.vue'),
     meta: { requiresAuth: true }
   },
   {
@@ -55,6 +62,7 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes
 })
+console.log('router.base:', import.meta.env.BASE_URL)
 
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
@@ -74,6 +82,14 @@ router.beforeEach((to, from, next) => {
     console.log('Storing redirect info - Path:', to.fullPath, 'Is valid:', isValidRoute)
 
     const eenAuthUrl = getAuthUrl()
+    
+    // Validate URL scheme before redirecting
+    if (!securityService.validateUrlScheme(eenAuthUrl)) {
+      console.error('🚫 Security: Blocked redirect to unsafe URL:', eenAuthUrl)
+      next(false)
+      return
+    }
+    
     window.location.assign(eenAuthUrl)
     next(false)
   } else {
