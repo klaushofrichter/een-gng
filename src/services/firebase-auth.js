@@ -19,7 +19,7 @@ class FirebaseAuthService {
    * @param {Object} firebaseApp - The Firebase app instance
    */
   initialize(firebaseApp) {
-    console.log('[FirebaseAuth] Initializing Firebase Auth and Functions')
+    //console.log('[FirebaseAuth] Initializing Firebase Auth and Functions')
     this.auth = getAuth(firebaseApp)
     this.functions = getFunctions(firebaseApp)
     
@@ -27,7 +27,7 @@ class FirebaseAuthService {
     this.auth.onAuthStateChanged((user) => {
       this.currentUser = user
       if (user) {
-        console.log('[FirebaseAuth] User signed in:', user.uid)
+        //console.log('[FirebaseAuth] User signed in:', user.uid)
         
         // Set up token refresh listener
         this.checkAndRefreshToken()
@@ -154,7 +154,19 @@ class FirebaseAuthService {
       return result.data.customToken
     } catch (error) {
       console.error('[FirebaseAuth] Error getting custom token:', error)
-      throw new Error(`Failed to get custom token: ${error.message}`)
+      
+      // Handle specific error cases with user-friendly messages
+      if (error.code === 'functions/already-exists') {
+        throw new Error(`Email address conflict: ${error.message}`)
+      } else if (error.code === 'functions/unauthenticated') {
+        throw new Error(`Authentication failed: ${error.message}`)
+      } else if (error.code === 'functions/permission-denied') {
+        throw new Error(`Permission denied: ${error.message}`)
+      } else if (error.code === 'functions/unavailable') {
+        throw new Error(`Service unavailable: ${error.message}`)
+      } else {
+        throw new Error(`Failed to get custom token: ${error.message}`)
+      }
     }
   }
 
