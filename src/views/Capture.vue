@@ -51,38 +51,45 @@
                   <li 
                     v-for="capture in captures" 
                     :key="capture.id" 
-                    class="p-2 bg-gray-100 dark:bg-gray-600 rounded hover:bg-gray-200 dark:hover:bg-gray-500 transition-colors flex items-center gap-3"
+                    class="p-2 bg-gray-100 dark:bg-gray-600 rounded hover:bg-gray-200 dark:hover:bg-gray-500 transition-colors"
                   >
-                    <div v-if="capture.thumbnail" class="flex-shrink-0">
-                      <img :src="capture.thumbnail" alt="Thumbnail" class="w-12 h-12 object-cover rounded border border-gray-300 dark:border-gray-600" />
-                    </div>
-                    <div class="flex-1 cursor-pointer" @click="openCaptureModal(capture)">
-                      <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ capture.name || 'Unnamed Capture' }}</p>
-                      <p class="text-xs text-gray-500 dark:text-gray-400">{{ capture.eenUserEmailField || 'No email' }}</p>
-                      <p v-if="capture.createdAt" class="text-xs text-gray-500 dark:text-gray-400">
-                        Created: {{ new Date(capture.createdAt).toLocaleString() }}
-                      </p>
-                      <p v-if="capture.imageCount && capture.imageCount > 0" class="text-xs text-green-600 dark:text-green-400">
-                        📁 {{ capture.imageCount }} images stored
-                      </p>
-                      <p v-else class="text-xs text-gray-600 dark:text-gray-400 italic">
-                        📷 No images captured yet
-                      </p>
-                    </div>
-                    <!-- Action buttons: Process and Delete -->
-                    <div class="flex items-center gap-2 ml-2">
-                      <button 
-                        class="px-4 py-2 text-xs font-medium bg-green-600 text-white rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
-                        @click.stop="openProcessModal(capture)"
-                      >
-                        Process
-                      </button>
-                      <button 
-                        class="px-4 py-2 text-xs font-medium bg-red-600 text-white rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
-                        @click.stop="openDeleteModal(capture)"
-                      >
-                        Delete
-                      </button>
+                    <!-- Mobile-first responsive layout -->
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+                      <!-- Thumbnail and content row -->
+                      <div class="flex items-center gap-3 flex-1">
+                        <div v-if="capture.thumbnail" class="flex-shrink-0">
+                          <img :src="capture.thumbnail" alt="Thumbnail" class="w-12 h-12 object-cover rounded border border-gray-300 dark:border-gray-600" />
+                        </div>
+                        <div class="flex-1 cursor-pointer" @click="openCaptureModal(capture)">
+                          <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ capture.name || 'Unnamed Capture' }}</p>
+                          <p class="text-xs text-gray-500 dark:text-gray-400">{{ capture.eenUserEmailField || 'No email' }}</p>
+                          <p v-if="capture.createdAt" class="text-xs text-gray-500 dark:text-gray-400">
+                            Created: {{ new Date(capture.createdAt).toLocaleString() }}
+                          </p>
+                          <p v-if="capture.imageCount && capture.imageCount > 0" class="text-xs text-green-600 dark:text-green-400">
+                            📁 {{ capture.imageCount }} images stored
+                          </p>
+                          <p v-else class="text-xs text-gray-600 dark:text-gray-400 italic">
+                            📷 No images captured yet
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <!-- Action buttons: Keep in same row on all screen sizes, right-aligned -->
+                      <div class="flex flex-row gap-2 justify-end sm:ml-2">
+                        <button 
+                          class="px-4 py-2 text-xs font-medium bg-green-600 text-white rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
+                          @click.stop="openProcessModal(capture)"
+                        >
+                          Process
+                        </button>
+                        <button 
+                          class="px-4 py-2 text-xs font-medium bg-red-600 text-white rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
+                          @click.stop="openDeleteModal(capture)"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   </li>
                 </ul>
@@ -233,12 +240,41 @@
 
         <!-- Processing Results -->
         <div v-if="processedImages.length > 0 && !isProcessing" class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-          <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-            Captured Images ({{ processedImages.length }})
-          </h4>
-          <div class="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 max-h-40 overflow-y-auto">
+          <div class="flex items-center justify-between mb-2">
+            <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100">
+              Captured Images ({{ processedImages.length }})
+            </h4>
+            <div v-if="totalImagePages > 1" class="flex items-center space-x-2">
+              <span class="text-xs text-gray-500 dark:text-gray-400">
+                Page {{ currentImagePage + 1 }} of {{ totalImagePages }}
+              </span>
+              <div class="flex space-x-1">
+                <button
+                  :disabled="!canGoToPreviousPage"
+                  class="p-1 rounded text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Previous page"
+                  @click="goToPreviousPage"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+                  </svg>
+                </button>
+                <button
+                  :disabled="!canGoToNextPage"
+                  class="p-1 rounded text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Next page"
+                  @click="goToNextPage"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
             <div 
-              v-for="processedImage in processedImages" 
+              v-for="processedImage in paginatedImages" 
               :key="processedImage.index"
               class="relative group"
             >
@@ -342,7 +378,7 @@
     @click="handleModalBackdropClick($event, 'reprocess')"
   >
     <div 
-      class="relative border w-full max-w-lg shadow-2xl rounded-lg bg-white dark:bg-gray-800 transform transition-all duration-300 scale-100"
+      class="relative border w-full max-w-4xl shadow-2xl rounded-lg bg-white dark:bg-gray-800 transform transition-all duration-300 scale-100"
       @click.stop
     >
       <!-- Modal Header -->
@@ -480,6 +516,10 @@ const isProcessing = ref(false);
 const processProgress = ref(0);
 const processedImages = ref([]);
 
+// Image pagination state
+const imagePageSize = ref(32); // 4 rows × 8 columns = 32 images per page
+const currentImagePage = ref(0);
+
 // Upload state
 const isUploading = ref(false);
 const uploadProgress = ref(0);
@@ -489,6 +529,42 @@ const showUploadSection = ref(false);
 // Streaming upload state for large sequences
 const streamingResults = ref([]);
 const uploadStats = ref({ success: 0, failed: 0, total: 0 });
+
+// Computed properties for image pagination
+const totalImagePages = computed(() => {
+  return Math.ceil(processedImages.value.length / imagePageSize.value);
+});
+
+const paginatedImages = computed(() => {
+  const start = currentImagePage.value * imagePageSize.value;
+  const end = start + imagePageSize.value;
+  return processedImages.value.slice(start, end);
+});
+
+const canGoToPreviousPage = computed(() => {
+  return currentImagePage.value > 0;
+});
+
+const canGoToNextPage = computed(() => {
+  return currentImagePage.value < totalImagePages.value - 1;
+});
+
+// Image pagination functions
+const goToPreviousPage = () => {
+  if (canGoToPreviousPage.value) {
+    currentImagePage.value--;
+  }
+};
+
+const goToNextPage = () => {
+  if (canGoToNextPage.value) {
+    currentImagePage.value++;
+  }
+};
+
+const resetImagePagination = () => {
+  currentImagePage.value = 0;
+};
 
 // Modal state management
 const isAnyModalOpen = computed(() => {
@@ -891,6 +967,9 @@ function calculateCaptureTimestamps(capture) {
 async function startImageCapture() {
   if (!processCapture.value) return;
   
+  // Reset pagination when starting new capture
+  resetImagePagination();
+  
   isProcessing.value = true;
   processProgress.value = 0;
   processedImages.value = [];
@@ -1151,6 +1230,9 @@ function startProcessModal(capture) {
   processProgress.value = 0;
   processedImages.value = [];
   
+  // Reset image pagination
+  resetImagePagination();
+  
   showProcessModal.value = true;
 }
 
@@ -1172,6 +1254,9 @@ function closeProcessModal() {
   // Reset streaming state
   streamingResults.value = [];
   uploadStats.value = { success: 0, failed: 0, total: 0 };
+  
+  // Reset image pagination
+  resetImagePagination();
   
   // Clean up any temporary storage
   if (window.fullImageSequence) {

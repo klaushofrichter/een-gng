@@ -6,7 +6,7 @@
     @click="handleModalBackdropClick"
   >
     <div 
-      class="relative border w-full max-w-2xl shadow-2xl rounded-lg bg-white dark:bg-gray-800 max-h-[90vh] overflow-y-scroll transform transition-all duration-300 scale-100"
+      class="relative border w-full max-w-4xl shadow-2xl rounded-lg bg-white dark:bg-gray-800 max-h-[90vh] overflow-y-scroll transform transition-all duration-300 scale-100"
       @click.stop
     >
       <!-- Modal Header -->
@@ -137,6 +137,73 @@
               <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
                 Images stored in optimized database structure
               </p>
+              
+              <!-- Load Images Button -->
+              <div class="mt-3">
+                <button 
+                  v-if="!imagesLoaded && !loadingImages"
+                  class="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                  @click="loadImages"
+                >
+                  View Images
+                </button>
+                <div v-if="loadingImages" class="flex items-center space-x-2">
+                  <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  <span class="text-xs text-gray-600 dark:text-gray-400">Loading images...</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Image Gallery -->
+          <div v-if="imagesLoaded && storedImages.length > 0" class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+            <div class="flex items-center justify-between mb-2">
+              <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                Stored Images ({{ storedImages.length }})
+              </h4>
+              <div v-if="totalImagePages > 1" class="flex items-center space-x-2">
+                <span class="text-xs text-gray-500 dark:text-gray-400">
+                  Page {{ currentImagePage + 1 }} of {{ totalImagePages }}
+                </span>
+                <div class="flex space-x-1">
+                  <button
+                    :disabled="!canGoToPreviousPage"
+                    class="p-1 rounded text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Previous page"
+                    @click="goToPreviousPage"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+                    </svg>
+                  </button>
+                  <button
+                    :disabled="!canGoToNextPage"
+                    class="p-1 rounded text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Next page"
+                    @click="goToNextPage"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+              <div 
+                v-for="image in paginatedImages" 
+                :key="image.index"
+                class="relative group"
+              >
+                <img 
+                  :src="image.downloadUrl" 
+                  :alt="`Image ${image.index}`"
+                  class="w-full h-12 object-cover rounded border border-gray-300 dark:border-gray-600"
+                />
+                <div class="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity rounded flex items-center justify-center">
+                  <span class="text-white text-xs font-bold">{{ image.index }}</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -180,6 +247,9 @@
 </template>
 
 <script setup>
+import { ref, computed, watch } from 'vue'
+import { databaseService } from '../services/database'
+
 // Props
 const props = defineProps({
   show: {
@@ -194,6 +264,98 @@ const props = defineProps({
 
 // Emits
 const emit = defineEmits(['close', 'process', 'delete'])
+
+// Image viewing state
+const storedImages = ref([])
+const loadingImages = ref(false)
+const imagesLoaded = ref(false)
+
+// Image pagination state
+const imagePageSize = ref(32) // 4 rows × 8 columns = 32 images per page
+const currentImagePage = ref(0)
+
+// Computed properties for image pagination
+const totalImagePages = computed(() => {
+  return Math.ceil(storedImages.value.length / imagePageSize.value)
+})
+
+const paginatedImages = computed(() => {
+  const start = currentImagePage.value * imagePageSize.value
+  const end = start + imagePageSize.value
+  return storedImages.value.slice(start, end)
+})
+
+const canGoToPreviousPage = computed(() => {
+  return currentImagePage.value > 0
+})
+
+const canGoToNextPage = computed(() => {
+  return currentImagePage.value < totalImagePages.value - 1
+})
+
+// Image pagination functions
+const goToPreviousPage = () => {
+  if (canGoToPreviousPage.value) {
+    currentImagePage.value--
+  }
+}
+
+const goToNextPage = () => {
+  if (canGoToNextPage.value) {
+    currentImagePage.value++
+  }
+}
+
+const resetImagePagination = () => {
+  currentImagePage.value = 0
+}
+
+// Load images from database
+const loadImages = async () => {
+  console.log(`[CaptureDetailsModal] loadImages called, capture:`, props.capture)
+  
+  if (!props.capture?.id) {
+    console.log(`[CaptureDetailsModal] No capture ID available`)
+    return
+  }
+  
+  loadingImages.value = true
+  try {
+    console.log(`[CaptureDetailsModal] Loading images for capture ${props.capture.id}`)
+    
+    // Get all images for this capture (set high limit to get all)
+    const images = await databaseService.getImages(props.capture.id, { 
+      limit: 10000, // High limit to get all images
+      orderBy: 'index' 
+    })
+    
+    console.log(`[CaptureDetailsModal] Raw images data:`, images)
+    
+    // Sort images by index to maintain order
+    storedImages.value = images.sort((a, b) => a.index - b.index)
+    imagesLoaded.value = true
+    resetImagePagination()
+    
+    console.log(`[CaptureDetailsModal] Loaded ${images.length} images, first image:`, images[0])
+  } catch (error) {
+    console.error('[CaptureDetailsModal] Error loading images:', error)
+    // Show error state to user
+    alert(`Failed to load images: ${error.message}`)
+  } finally {
+    loadingImages.value = false
+  }
+}
+
+// Reset state when modal is closed or capture changes
+watch([() => props.show, () => props.capture], ([show, capture]) => {
+  if (!show || !capture) {
+    // Reset state when modal closes
+    storedImages.value = []
+    imagesLoaded.value = false
+    loadingImages.value = false
+    resetImagePagination()
+  }
+})
 
 // Handle backdrop clicks for modal
 function handleModalBackdropClick(event) {
