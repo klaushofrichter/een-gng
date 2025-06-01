@@ -51,38 +51,45 @@
                   <li 
                     v-for="capture in captures" 
                     :key="capture.id" 
-                    class="p-2 bg-gray-100 dark:bg-gray-600 rounded hover:bg-gray-200 dark:hover:bg-gray-500 transition-colors flex items-center gap-3"
+                    class="p-2 bg-gray-100 dark:bg-gray-600 rounded hover:bg-gray-200 dark:hover:bg-gray-500 transition-colors"
                   >
-                    <div v-if="capture.thumbnail" class="flex-shrink-0">
-                      <img :src="capture.thumbnail" alt="Thumbnail" class="w-12 h-12 object-cover rounded border border-gray-300 dark:border-gray-600" />
-                    </div>
-                    <div class="flex-1 cursor-pointer" @click="openCaptureModal(capture)">
-                      <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ capture.name || 'Unnamed Capture' }}</p>
-                      <p class="text-xs text-gray-500 dark:text-gray-400">{{ capture.eenUserEmailField || 'No email' }}</p>
-                      <p v-if="capture.createdAt" class="text-xs text-gray-500 dark:text-gray-400">
-                        Created: {{ new Date(capture.createdAt).toLocaleString() }}
-                      </p>
-                      <p v-if="capture.imageCount && capture.imageCount > 0" class="text-xs text-green-600 dark:text-green-400">
-                        📁 {{ capture.imageCount }} images stored
-                      </p>
-                      <p v-else class="text-xs text-gray-600 dark:text-gray-400 italic">
-                        📷 No images captured yet
-                      </p>
-                    </div>
-                    <!-- Action buttons: Process and Delete -->
-                    <div class="flex items-center gap-2 ml-2">
-                      <button 
-                        class="px-4 py-2 text-xs font-medium bg-green-600 text-white rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
-                        @click.stop="openProcessModal(capture)"
-                      >
-                        Process
-                      </button>
-                      <button 
-                        class="px-4 py-2 text-xs font-medium bg-red-600 text-white rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
-                        @click.stop="openDeleteModal(capture)"
-                      >
-                        Delete
-                      </button>
+                    <!-- Mobile-first responsive layout -->
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+                      <!-- Thumbnail and content row -->
+                      <div class="flex items-center gap-3 flex-1">
+                        <div v-if="capture.thumbnail" class="flex-shrink-0">
+                          <img :src="capture.thumbnail" alt="Thumbnail" class="w-12 h-12 object-cover rounded border border-gray-300 dark:border-gray-600" />
+                        </div>
+                        <div class="flex-1 cursor-pointer" @click="openCaptureModal(capture)">
+                          <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ capture.name || 'Unnamed Capture' }}</p>
+                          <p class="text-xs text-gray-500 dark:text-gray-400">{{ capture.eenUserEmailField || 'No email' }}</p>
+                          <p v-if="capture.createdAt" class="text-xs text-gray-500 dark:text-gray-400">
+                            Created: {{ new Date(capture.createdAt).toLocaleString() }}
+                          </p>
+                          <p v-if="capture.imageCount && capture.imageCount > 0" class="text-xs text-green-600 dark:text-green-400">
+                            📁 {{ capture.imageCount }} images stored
+                          </p>
+                          <p v-else class="text-xs text-gray-600 dark:text-gray-400 italic">
+                            📷 No images captured yet
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <!-- Action buttons: Keep in same row on all screen sizes, right-aligned -->
+                      <div class="flex flex-row gap-2 justify-end sm:ml-2">
+                        <button 
+                          class="px-4 py-2 text-xs font-medium bg-green-600 text-white rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
+                          @click.stop="openProcessModal(capture)"
+                        >
+                          Process
+                        </button>
+                        <button 
+                          class="px-4 py-2 text-xs font-medium bg-red-600 text-white rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
+                          @click.stop="openDeleteModal(capture)"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   </li>
                 </ul>
