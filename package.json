@@ -1,7 +1,7 @@
 {
   "name": "een-gng",
-  "version": "0.2.22",
-  "lastCommit": "2025-06-01T18:57:45.560Z",
+  "version": "0.2.23",
+  "lastCommit": "2025-06-01T19:54:52.964Z",
   "private": true,
   "type": "module",
   "base": "/een-gng/",
@@ -18,6 +18,7 @@
     "format": "prettier --write .",
     "check-node": "node scripts/check-node-version.js",
     "cleanup-captures": "node scripts/cleanup-captures.js",
+    "check-email-conflicts": "node scripts/check-email-conflicts.js",
     "version:patch": "node scripts/version-bump.js",
     "prepare": "husky",
     "gh-deploy": "gh-pages -d dist -f -m 'Deploy to GitHub Pages' -u 'Klaus Hofrichter <klaus@klaushofrichter.net>'",

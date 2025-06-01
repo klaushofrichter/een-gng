@@ -925,3 +925,50 @@ This service architecture provides a robust, secure, and maintainable foundation
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Authentication Architecture
+
+### Firebase Authentication Limitations
+
+**Important**: This application uses a custom Firebase authentication system that creates users with specific UIDs based on EEN user IDs (`een_${eenUserId}`). This design has the following implications:
+
+#### Admin Account Conflicts
+
+**If you previously logged into Firebase using other authentication methods** (Google, email/password, etc.) with the same email address that you use for EEN:
+
+- ✅ **Your previous Firebase admin account will remain intact**
+- ❌ **You cannot log into this EEN application with that email address**
+- 🔄 **This is expected behavior, not a bug**
+
+#### Why This Happens
+
+1. Firebase requires each email address to be unique across all users
+2. Your existing admin account has a different UID (e.g., random string from Google auth)
+3. EEN authentication tries to create a user with UID `een_${yourEenUserId}`
+4. Firebase rejects this because the email is already taken
+
+#### Solutions for Admin Users
+
+**Option 1: Use a Different Email (Recommended)**
+- Create a separate EEN account with a different email address
+- Use that account for testing this application
+
+**Option 2: Account Migration (Advanced)**
+- Contact the development team to manually migrate your account
+- This requires admin intervention to link the accounts
+
+**Option 3: Clean Slate (Development Only)**
+- Delete your existing Firebase user account
+- Then log in with EEN authentication
+- ⚠️ **This will lose any data associated with your admin account**
+
+#### Error Messages
+
+If you encounter this conflict, you'll see:
+```
+Email address conflict: The email address [your-email] is already in use by another account. Please contact support to link your accounts.
+```
+
+This is the expected behavior and indicates the system is working correctly.
+
+## Development Setup

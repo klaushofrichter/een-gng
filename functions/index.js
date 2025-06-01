@@ -293,17 +293,61 @@ exports.createCustomToken = onCall(async (request) => {
 
     // Create or update user record in Firebase Auth
     try {
-      await adminAuth.getUser(firebaseUid);
-      // User exists, update the record
-      await adminAuth.updateUser(firebaseUid, {
-        email: sanitizedEenUserEmail,
-        emailVerified: true,
-        customClaims,
-      });
-      logger.info("Updated existing Firebase user:", firebaseUid);
-    } catch (error) {
-      if (error.code === "auth/user-not-found") {
-        // User doesn't exist, create new user
+      // First, check if a user with this email already exists
+      let existingUserByEmail = null;
+      try {
+        existingUserByEmail = await adminAuth.getUserByEmail(sanitizedEenUserEmail);
+      } catch (emailError) {
+        // User with this email doesn't exist, which is fine
+        if (emailError.code !== "auth/user-not-found") {
+          throw emailError;
+        }
+      }
+
+      // Check if user with our expected UID exists
+      let existingUserByUid = null;
+      try {
+        existingUserByUid = await adminAuth.getUser(firebaseUid);
+      } catch (uidError) {
+        // User with this UID doesn't exist, which is fine
+        if (uidError.code !== "auth/user-not-found") {
+          throw uidError;
+        }
+      }
+
+      if (existingUserByEmail && existingUserByUid) {
+        // Both email and UID exist - check if they're the same user
+        if (existingUserByEmail.uid === existingUserByUid.uid) {
+          // Same user, just update
+          await adminAuth.updateUser(firebaseUid, {
+            email: sanitizedEenUserEmail,
+            emailVerified: true,
+            customClaims,
+          });
+          logger.info("Updated existing Firebase user:", firebaseUid);
+        } else {
+          // Different users - email conflict
+          throw new HttpsError(
+            "already-exists",
+            `The email address ${sanitizedEenUserEmail} is already in use by another account. Please contact support to link your accounts.`
+          );
+        }
+      } else if (existingUserByEmail && !existingUserByUid) {
+        // Email exists with different UID - this is the main conflict case
+        throw new HttpsError(
+          "already-exists",
+          `The email address ${sanitizedEenUserEmail} is already in use by another account. Please contact support to link your accounts.`
+        );
+      } else if (!existingUserByEmail && existingUserByUid) {
+        // UID exists but with different email - update the email
+        await adminAuth.updateUser(firebaseUid, {
+          email: sanitizedEenUserEmail,
+          emailVerified: true,
+          customClaims,
+        });
+        logger.info("Updated existing Firebase user with new email:", firebaseUid);
+      } else {
+        // Neither exists - create new user
         await adminAuth.createUser({
           uid: firebaseUid,
           email: sanitizedEenUserEmail,
@@ -311,9 +355,23 @@ exports.createCustomToken = onCall(async (request) => {
           customClaims,
         });
         logger.info("Created new Firebase user:", firebaseUid);
-      } else {
+      }
+    } catch (error) {
+      // If it's already an HttpsError, re-throw it
+      if (error.code && error.code.startsWith("functions/")) {
         throw error;
       }
+      
+      // Handle specific Firebase Auth errors
+      if (error.code === "auth/email-already-exists") {
+        throw new HttpsError(
+          "already-exists",
+          `The email address ${sanitizedEenUserEmail} is already in use by another account. Please contact support to link your accounts.`
+        );
+      }
+      
+      // Re-throw other errors
+      throw error;
     }
 
     // Generate custom token
