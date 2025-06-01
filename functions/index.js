@@ -340,3 +340,295 @@ exports.createCustomToken = onCall(async (request) => {
     );
   }
 });
+
+const { onRequest } = require("firebase-functions/v2/https");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
+const admin = require("firebase-admin");
+
+// Get storage instance (db and adminAuth are already declared above)
+const storage = admin.storage();
+
+/**
+ * Rotate download URL tokens for a specific capture
+ * Can be called directly or triggered by schedule
+ */
+exports.rotateTokensForCapture = onCall(async (request) => {
+  try {
+    const { captureId, userEmail } = request.data;
+    
+    // Verify user authentication
+    if (!request.auth) {
+      throw new Error('Authentication required');
+    }
+    
+    // Verify user owns the capture
+    const captureDoc = await db.collection('captures').doc(captureId).get();
+    if (!captureDoc.exists) {
+      throw new Error('Capture not found');
+    }
+    
+    const captureData = captureDoc.data();
+    if (captureData.eenUserEmailField !== userEmail) {
+      throw new Error('Unauthorized: User does not own this capture');
+    }
+    
+    logger.info(`Starting token rotation for capture ${captureId}`);
+    
+    // Get all images for this capture
+    const imagesSnapshot = await db.collection('capture_images')
+      .where('captureId', '==', captureId)
+      .get();
+    
+    if (imagesSnapshot.empty) {
+      return { success: true, rotated: 0, failed: 0, message: 'No images found' };
+    }
+    
+    const batch = db.batch();
+    let rotated = 0;
+    let failed = 0;
+    const results = [];
+    
+    // Process each image
+    for (const imageDoc of imagesSnapshot.docs) {
+      try {
+        const imageData = imageDoc.data();
+        const storagePath = `captures/${captureId}/image_${String(imageData.index).padStart(3, '0')}.jpg`;
+        
+        // Generate new download URL (this creates a new token)
+        const file = storage.bucket().file(storagePath);
+        const [url] = await file.getSignedUrl({
+          action: 'read',
+          expires: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+        });
+        
+        // Update the document with new URL
+        batch.update(imageDoc.ref, {
+          downloadUrl: url,
+          tokenRotatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          rotatedBy: 'server-function'
+        });
+        
+        rotated++;
+        results.push({
+          imageId: imageDoc.id,
+          index: imageData.index,
+          success: true
+        });
+        
+        logger.info(`Rotated token for image ${imageData.index}`);
+        
+      } catch (error) {
+        failed++;
+        results.push({
+          imageId: imageDoc.id,
+          index: imageData.index,
+          success: false,
+          error: error.message
+        });
+        
+        logger.error(`Failed to rotate token for image ${imageDoc.id}:`, error);
+      }
+    }
+    
+    // Commit all updates
+    await batch.commit();
+    
+    // Update capture metadata
+    await db.collection('captures').doc(captureId).update({
+      lastTokenRotation: admin.firestore.FieldValue.serverTimestamp(),
+      tokenRotationCount: admin.firestore.FieldValue.increment(1)
+    });
+    
+    logger.info(`Token rotation complete: ${rotated} rotated, ${failed} failed`);
+    
+    return {
+      success: true,
+      rotated,
+      failed,
+      totalImages: imagesSnapshot.size,
+      results
+    };
+    
+  } catch (error) {
+    logger.error('Error in rotateTokensForCapture:', error);
+    throw new Error(`Token rotation failed: ${error.message}`);
+  }
+});
+
+/**
+ * Rotate tokens for all captures older than specified hours
+ * Scheduled function that runs automatically (yearly maintenance)
+ */
+exports.rotateOldTokens = onSchedule({
+  schedule: '0 2 28 5 *',
+  timeZone: 'UTC'
+}, async (event) => {
+  try {
+    const maxAgeHours = 12; // 12 hours (rotate before 24-hour expiration)
+    const cutoffDate = new Date(Date.now() - maxAgeHours * 60 * 60 * 1000);
+    
+    logger.info(`Starting yearly scheduled token rotation for captures older than ${cutoffDate.toISOString()}`);
+    
+    // Find captures that need token rotation
+    const capturesSnapshot = await db.collection('captures')
+      .where('processedAt', '<', cutoffDate.toISOString())
+      .where('status', '==', 'completed')
+      .get();
+    
+    if (capturesSnapshot.empty) {
+      logger.info('No captures found that need token rotation');
+      return;
+    }
+    
+    let totalRotated = 0;
+    let totalFailed = 0;
+    let capturesProcessed = 0;
+    
+    // Process each capture
+    for (const captureDoc of capturesSnapshot.docs) {
+      try {
+        const captureData = captureDoc.data();
+        const captureId = captureDoc.id;
+        
+        logger.info(`Processing capture ${captureId} for token rotation`);
+        
+        // Get all images for this capture
+        const imagesSnapshot = await db.collection('capture_images')
+          .where('captureId', '==', captureId)
+          .get();
+        
+        if (imagesSnapshot.empty) {
+          continue;
+        }
+        
+        const batch = db.batch();
+        let captureRotated = 0;
+        let captureFailed = 0;
+        
+        // Process images in batches of 400 (Firestore limit is 500)
+        const imageDocs = imagesSnapshot.docs;
+        for (let i = 0; i < imageDocs.length; i += 400) {
+          const batchDocs = imageDocs.slice(i, i + 400);
+          
+          for (const imageDoc of batchDocs) {
+            try {
+              const imageData = imageDoc.data();
+              const storagePath = `captures/${captureId}/image_${String(imageData.index).padStart(3, '0')}.jpg`;
+              
+              // Generate new download URL
+              const file = storage.bucket().file(storagePath);
+              const [url] = await file.getSignedUrl({
+                action: 'read',
+                expires: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+              });
+              
+              // Update the document
+              batch.update(imageDoc.ref, {
+                downloadUrl: url,
+                tokenRotatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                rotatedBy: 'scheduled-function'
+              });
+              
+              captureRotated++;
+              
+            } catch (error) {
+              captureFailed++;
+              logger.error(`Failed to rotate token for image ${imageDoc.id}:`, error);
+            }
+          }
+          
+          // Commit this batch
+          await batch.commit();
+        }
+        
+        // Update capture metadata
+        await db.collection('captures').doc(captureId).update({
+          lastTokenRotation: admin.firestore.FieldValue.serverTimestamp(),
+          tokenRotationCount: admin.firestore.FieldValue.increment(1)
+        });
+        
+        totalRotated += captureRotated;
+        totalFailed += captureFailed;
+        capturesProcessed++;
+        
+        logger.info(`Completed capture ${captureId}: ${captureRotated} rotated, ${captureFailed} failed`);
+        
+      } catch (error) {
+        logger.error(`Error processing capture ${captureDoc.id}:`, error);
+      }
+    }
+    
+    logger.info(`Scheduled token rotation complete: ${capturesProcessed} captures processed, ${totalRotated} tokens rotated, ${totalFailed} failed`);
+    
+  } catch (error) {
+    logger.error('Error in scheduled token rotation:', error);
+  }
+});
+
+/**
+ * Rotate tokens for all captures by a specific user
+ */
+exports.rotateTokensForUser = onCall(async (request) => {
+  try {
+    const { userEmail } = request.data;
+    
+    // Verify user authentication
+    if (!request.auth) {
+      throw new Error('Authentication required');
+    }
+    
+    // Verify user is requesting their own data
+    if (request.auth.token.email !== userEmail) {
+      throw new Error('Unauthorized: Can only rotate tokens for your own captures');
+    }
+    
+    logger.info(`Starting token rotation for all captures by user ${userEmail}`);
+    
+    // Get all captures for this user
+    const capturesSnapshot = await db.collection('captures')
+      .where('eenUserEmailField', '==', userEmail)
+      .where('status', '==', 'completed')
+      .get();
+    
+    if (capturesSnapshot.empty) {
+      return { success: true, capturesProcessed: 0, totalRotated: 0, totalFailed: 0 };
+    }
+    
+    let totalRotated = 0;
+    let totalFailed = 0;
+    let capturesProcessed = 0;
+    
+    // Process each capture
+    for (const captureDoc of capturesSnapshot.docs) {
+      try {
+        const captureId = captureDoc.id;
+        
+        // Call the single capture rotation function
+        const result = await rotateTokensForCapture({
+          data: { captureId, userEmail },
+          auth: request.auth
+        });
+        
+        totalRotated += result.rotated;
+        totalFailed += result.failed;
+        capturesProcessed++;
+        
+      } catch (error) {
+        logger.error(`Error processing capture ${captureDoc.id}:`, error);
+      }
+    }
+    
+    logger.info(`User token rotation complete: ${capturesProcessed} captures processed, ${totalRotated} tokens rotated, ${totalFailed} failed`);
+    
+    return {
+      success: true,
+      capturesProcessed,
+      totalRotated,
+      totalFailed
+    };
+    
+  } catch (error) {
+    logger.error('Error in rotateTokensForUser:', error);
+    throw new Error(`User token rotation failed: ${error.message}`);
+  }
+});

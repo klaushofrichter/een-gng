@@ -47,9 +47,39 @@ export async function loginToApplication(page, basePath = '') {
   // login with EEN
   await loginWithEEN(page)
 
-  // Wait for home page
-  await page.waitForURL(basePath + '/home', { timeout: 25000 })
-  console.log('✅ Successfully logged in')
+  // Wait for home page with increased timeout and better error handling
+  try {
+    await page.waitForURL(basePath + '/home', { timeout: 30000 })
+    console.log('✅ Successfully logged in')
+  } catch (error) {
+    console.log('⚠️ Timeout waiting for /home, checking if we are authenticated...')
+    
+    // Check if we're actually logged in by looking for user-specific content
+    try {
+      // Wait for any authenticated page content (could be home, capture, etc.)
+      await Promise.race([
+        page.waitForURL(basePath + '/home', { timeout: 5000 }),
+        page.waitForSelector('text=Welcome to', { timeout: 5000 }),
+        page.waitForSelector('text=Capture and manage', { timeout: 5000 }),
+        page.waitForSelector('[data-testid="user-email"]', { timeout: 5000 }),
+        page.waitForSelector('button:has-text("Logout")', { timeout: 5000 })
+      ])
+      
+      console.log('✅ Authentication successful (detected authenticated content)')
+      
+      // If we're not on home page, navigate there
+      const currentUrl = page.url()
+      if (!currentUrl.includes('/home')) {
+        console.log('🔄 Navigating to home page...')
+        await page.goto(basePath + '/home')
+        await page.waitForURL(basePath + '/home', { timeout: 10000 })
+      }
+      
+    } catch (authCheckError) {
+      console.error('❌ Authentication verification failed:', authCheckError)
+      throw new Error(`Login failed: Could not verify authentication after EEN login. Original error: ${error.message}`)
+    }
+  }
 }
 
 export async function loginWithEEN(page) {

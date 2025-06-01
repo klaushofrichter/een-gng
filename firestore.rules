@@ -4,40 +4,48 @@ service cloud.firestore {
     // Helper function for authentication with proper claim validation
     function isAuthenticated() {
       return request.auth != null && 
-             request.auth.token.eenUserEmail != null;
+             request.auth.token.eenUserEmail != null &&
+             request.auth.token.email != null;
     }
     
     // Helper function to check if user owns the resource
     function isOwner(resourceData) {
-      return request.auth.token.eenUserEmail == resourceData.eenUserEmailField ||
-             request.auth.token.email == resourceData.eenUserEmailField;
+      return request.auth.token.eenUserEmail == resourceData.eenUserEmailField;
+    }
+    
+    // Helper function to validate user email matches token
+    function isValidUser() {
+      return request.auth.token.email == request.auth.token.eenUserEmail;
     }
 
     // Rules for the 'documents' collection
     match /documents/{documentId} {
       // Allow authenticated users to read documents they own
       allow read, list: if isAuthenticated() && 
-        (request.auth.token.email == "klaus@klaushofrichter.net" || 
-         isOwner(resource.data));
+        isValidUser() && 
+        isOwner(resource.data);
 
       // Allow authenticated users to create documents
       allow create: if isAuthenticated() && 
-        (request.auth.token.email == "klaus@klaushofrichter.net" || 
-         isOwner(request.resource.data));
+        isValidUser() && 
+        isOwner(request.resource.data);
 
       // Allow authenticated users to delete their own documents
       allow delete: if isAuthenticated() && 
-        (request.auth.token.email == "klaus@klaushofrichter.net" || 
-         isOwner(resource.data));
+        isValidUser() && 
+        isOwner(resource.data);
     }
 
     // Rules for the 'captures' collection (lightweight capture metadata)
     match /captures/{captureId} {
-      // Allow authenticated users to read their own captures
-      allow read, list: if isAuthenticated() && isOwner(resource.data);
+      // Allow authenticated users to read their own captures only
+      allow read, list: if isAuthenticated() && 
+        isValidUser() && 
+        isOwner(resource.data);
 
       // Allow authenticated EEN users to create captures
       allow create: if isAuthenticated() && 
+        isValidUser() &&
         isOwner(request.resource.data) &&
         // Validate required fields for optimized structure
         request.resource.data.keys().hasAll(['name', 'cameraId', 'startDate', 'eenUserEmailField']) &&
@@ -47,31 +55,35 @@ service cloud.firestore {
         request.resource.data.cameraId is string &&
         request.resource.data.cameraId.size() > 0 &&
         // Ensure no images array is stored (should be in separate collection)
-        !request.resource.data.keys().hasAny(['images']);
+        !request.resource.data.keys().hasAny(['images']) &&
+        // Ensure the eenUserEmailField matches the authenticated user
+        request.resource.data.eenUserEmailField == request.auth.token.eenUserEmail;
 
       // Allow authenticated EEN users to update their own captures
       allow update: if isAuthenticated() && 
+        isValidUser() &&
         isOwner(resource.data) &&
+        isOwner(request.resource.data) &&
         // Prevent changing ownership
         request.resource.data.eenUserEmailField == resource.data.eenUserEmailField &&
+        request.resource.data.eenUserEmailField == request.auth.token.eenUserEmail &&
         // Ensure no images array is added during update
         !request.resource.data.keys().hasAny(['images']);
 
       // Allow authenticated EEN users to delete their own captures
-      allow delete: if isAuthenticated() && isOwner(resource.data);
+      allow delete: if isAuthenticated() && 
+        isValidUser() && 
+        isOwner(resource.data);
     }
 
     // Rules for the 'capture_images' collection (individual image documents)
     match /capture_images/{imageId} {
-      // Allow authenticated users to read image documents
-      // Note: We allow broader read access here because:
-      // 1. Delete operations need to query documents first
-      // 2. Authentication already validates the user is legitimate
-      // 3. Sensitive data should not be stored in image metadata anyway
+      // Allow authenticated users to read image documents - URLs have token-based security
       allow read, list: if isAuthenticated();
 
       // Allow authenticated EEN users to create image documents
       allow create: if isAuthenticated() && 
+        isValidUser() &&
         isOwner(request.resource.data) &&
         // Validate required fields for image documents
         request.resource.data.keys().hasAll(['captureId', 'index', 'timestamp', 'eenUserEmailField']) &&
@@ -81,21 +93,28 @@ service cloud.firestore {
         request.resource.data.index is number &&
         request.resource.data.index >= 0 &&
         request.resource.data.timestamp is string &&
-        request.resource.data.timestamp.size() > 0;
+        request.resource.data.timestamp.size() > 0 &&
+        // Ensure the eenUserEmailField matches the authenticated user
+        request.resource.data.eenUserEmailField == request.auth.token.eenUserEmail;
 
       // Allow authenticated EEN users to update their own image documents
       allow update: if isAuthenticated() && 
+        isValidUser() &&
         isOwner(resource.data) &&
+        isOwner(request.resource.data) &&
         // Prevent changing ownership or core identifiers
         request.resource.data.eenUserEmailField == resource.data.eenUserEmailField &&
+        request.resource.data.eenUserEmailField == request.auth.token.eenUserEmail &&
         request.resource.data.captureId == resource.data.captureId &&
         request.resource.data.index == resource.data.index;
 
       // Allow authenticated EEN users to delete their own image documents
-      allow delete: if isAuthenticated() && isOwner(resource.data);
+      allow delete: if isAuthenticated() && 
+        isValidUser() && 
+        isOwner(resource.data);
     }
     
-    // Deny all other access
+    // Deny all other access explicitly
     match /{document=**} {
       allow read, write: if false;
     }

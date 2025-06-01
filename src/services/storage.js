@@ -49,6 +49,13 @@ class StorageService {
       const currentUser = auth.currentUser
       
       // Debug: Log authentication details
+      console.log('[StorageService] uploadImage called with:', {
+        captureId,
+        imageIndex,
+        timestamp,
+        attempt
+      })
+      
       if (currentUser) {
         console.log('[StorageService] Current user:', {
           uid: currentUser.uid,
@@ -87,14 +94,15 @@ class StorageService {
       const storagePath = `captures/${captureId}/${fileName}`
       const storageRef = ref(storage, storagePath)
       
-      // Add metadata
+      // Add metadata including user email for security validation
       const metadata = {
         contentType: 'image/jpeg',
         customMetadata: {
           captureId: captureId,
           imageIndex: String(imageIndex),
           timestamp: timestamp,
-          uploadedAt: new Date().toISOString()
+          uploadedAt: new Date().toISOString(),
+          eenUserEmail: currentUser?.email || 'unknown' // Add user email for Storage rules validation
         }
       }
       
@@ -376,6 +384,158 @@ class StorageService {
         error: error.message 
       });
       throw error;
+    }
+  }
+
+  /**
+   * Rotate download URL tokens for a capture's images
+   * This invalidates old URLs and generates new ones for security
+   * @param {string} captureId - The capture ID
+   * @param {Function} onProgress - Progress callback (current, total)
+   * @returns {Promise<{rotated: number, failed: number, results: Array}>}
+   */
+  async rotateImageTokens(captureId, onProgress = null) {
+    try {
+      console.log(`[StorageService] Starting token rotation for capture ${captureId}`)
+      
+      // Get current Firebase user for security validation
+      const auth = getAuth()
+      const currentUser = auth.currentUser
+      securityService.validateFirebaseOperation('update', currentUser)
+      
+      // Import database service dynamically to avoid circular dependency
+      const { databaseService } = await import('./database')
+      
+      // Get all images for this capture
+      const images = await databaseService.getImages(captureId, { limit: 10000 })
+      console.log(`[StorageService] Found ${images.length} images to rotate tokens for`)
+      
+      if (images.length === 0) {
+        return { rotated: 0, failed: 0, results: [] }
+      }
+      
+      const results = []
+      let rotated = 0
+      let failed = 0
+      
+      // Process images in batches to avoid overwhelming Firebase
+      const batchSize = 10
+      for (let i = 0; i < images.length; i += batchSize) {
+        const batch = images.slice(i, i + batchSize)
+        
+        const batchPromises = batch.map(async (image) => {
+          try {
+            // Get storage reference for the image
+            const storagePath = `captures/${captureId}/image_${String(image.index).padStart(3, '0')}.jpg`
+            const storageRef = ref(storage, storagePath)
+            
+            // Generate new download URL (this creates a new token)
+            const newDownloadUrl = await getDownloadURL(storageRef)
+            
+            // Update the image document in Firestore with new URL
+            await databaseService.updateImageUrl(image.id, newDownloadUrl)
+            
+            rotated++
+            
+            const result = {
+              imageId: image.id,
+              index: image.index,
+              oldUrl: image.downloadUrl,
+              newUrl: newDownloadUrl,
+              success: true,
+              rotatedAt: new Date().toISOString()
+            }
+            
+            results.push(result)
+            console.log(`[StorageService] Rotated token for image ${image.index}`)
+            
+            return result
+            
+          } catch (error) {
+            failed++
+            console.error(`[StorageService] Failed to rotate token for image ${image.index}:`, error)
+            
+            const result = {
+              imageId: image.id,
+              index: image.index,
+              success: false,
+              error: error.message
+            }
+            
+            results.push(result)
+            return result
+          }
+        })
+        
+        // Wait for batch to complete
+        await Promise.all(batchPromises)
+        
+        // Call progress callback
+        if (onProgress) {
+          const completed = Math.min(i + batchSize, images.length)
+          onProgress(completed, images.length)
+        }
+        
+        // Small delay between batches to be nice to Firebase
+        if (i + batchSize < images.length) {
+          await new Promise(resolve => setTimeout(resolve, 100))
+        }
+      }
+      
+      console.log(`[StorageService] Token rotation complete: ${rotated} rotated, ${failed} failed`)
+      
+      // Log security event
+      securityService.logSecurityEvent('tokens_rotated', {
+        captureId,
+        rotated,
+        failed,
+        totalImages: images.length
+      })
+      
+      return { rotated, failed, results }
+      
+    } catch (error) {
+      console.error(`[StorageService] Error rotating tokens for capture ${captureId}:`, error)
+      securityService.logSecurityEvent('token_rotation_failed', {
+        captureId,
+        error: error.message
+      })
+      throw new Error(`Failed to rotate tokens: ${error.message}`)
+    }
+  }
+
+  /**
+   * Check if image tokens need rotation based on age
+   * @param {string} captureId - The capture ID
+   * @param {number} maxAgeHours - Maximum age in hours before rotation needed
+   * @returns {Promise<{needsRotation: boolean, imageCount: number, oldestTokenAge: number}>}
+   */
+  async checkTokenRotationNeeded(captureId, maxAgeHours = 24 * 7) { // Default: 1 week
+    try {
+      // Import database service dynamically
+      const { databaseService } = await import('./database')
+      
+      // Get images for this capture
+      const images = await databaseService.getImages(captureId, { limit: 1 })
+      
+      if (images.length === 0) {
+        return { needsRotation: false, imageCount: 0, oldestTokenAge: 0 }
+      }
+      
+      // Check the age of the first image's token (assuming all were created together)
+      const firstImage = images[0]
+      const uploadedAt = new Date(firstImage.uploadedAt || firstImage.timestamp)
+      const ageHours = (Date.now() - uploadedAt.getTime()) / (1000 * 60 * 60)
+      
+      return {
+        needsRotation: ageHours > maxAgeHours,
+        imageCount: images.length,
+        oldestTokenAge: ageHours
+      }
+      
+    } catch (error) {
+      console.error(`[StorageService] Error checking token rotation need:`, error)
+      return { needsRotation: false, imageCount: 0, oldestTokenAge: 0 }
     }
   }
 }

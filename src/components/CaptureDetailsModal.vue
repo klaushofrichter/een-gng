@@ -140,16 +140,86 @@
               
               <!-- Load Images Button -->
               <div class="mt-3">
-                <button 
-                  v-if="!imagesLoaded && !loadingImages"
-                  class="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-                  @click="loadImages"
-                >
-                  View Images
-                </button>
-                <div v-if="loadingImages" class="flex items-center space-x-2">
+                <div class="flex items-center space-x-2">
+                  <button 
+                    v-if="!imagesLoaded && !loadingImages && !imageLoadError"
+                    class="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                    @click="loadImages"
+                  >
+                    View Images
+                  </button>
+                  
+                  <!-- Token Rotation Button -->
+                  <button 
+                    v-if="imagesLoaded && !rotatingTokens"
+                    class="px-3 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 transition-colors"
+                    @click="rotateTokens"
+                    title="Rotate download URL tokens for enhanced security"
+                  >
+                    🔄 Rotate Tokens
+                  </button>
+                </div>
+                
+                <div v-if="loadingImages" class="flex items-center space-x-2 mt-2">
                   <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                   <span class="text-xs text-gray-600 dark:text-gray-400">Loading images...</span>
+                </div>
+                
+                <!-- Token Rotation Progress -->
+                <div v-if="rotatingTokens" class="mt-2">
+                  <div class="flex items-center space-x-2">
+                    <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-600"></div>
+                    <span class="text-xs text-gray-600 dark:text-gray-400">
+                      Rotating tokens... {{ rotationProgress }}/{{ rotationTotal }}
+                    </span>
+                  </div>
+                  <div v-if="rotationTotal > 0" class="w-full bg-gray-200 rounded-full h-1.5 mt-1">
+                    <div 
+                      class="bg-orange-600 h-1.5 rounded-full transition-all duration-300" 
+                      :style="{ width: `${(rotationProgress / rotationTotal) * 100}%` }"
+                    ></div>
+                  </div>
+                </div>
+                
+                <!-- Error Messages -->
+                <div v-if="imageLoadError" class="mt-2">
+                  <div v-if="imageLoadError === 'security'" class="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded p-3">
+                    <div class="flex items-start space-x-2">
+                      <svg class="w-5 h-5 text-orange-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                      </svg>
+                      <div>
+                        <h5 class="text-sm font-medium text-orange-800 dark:text-orange-400">Images Not Accessible</h5>
+                        <p class="text-sm text-orange-700 dark:text-orange-300 mt-1">
+                          These images were created before security updates and cannot be accessed. 
+                          Please re-process this capture to generate new secure images.
+                        </p>
+                        <button 
+                          class="mt-2 px-3 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 transition-colors"
+                          @click="$emit('process', capture)"
+                        >
+                          Re-process Capture
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div v-else class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-3">
+                    <div class="flex items-start space-x-2">
+                      <svg class="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                      </svg>
+                      <div>
+                        <h5 class="text-sm font-medium text-red-800 dark:text-red-400">Error Loading Images</h5>
+                        <p class="text-sm text-red-700 dark:text-red-300 mt-1">{{ imageLoadError }}</p>
+                        <button 
+                          class="mt-2 px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                          @click="loadImages"
+                        >
+                          Try Again
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -249,6 +319,8 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { databaseService } from '../services/database'
+import { storageService } from '../services/storage'
+import { getFunctions, httpsCallable } from 'firebase/functions'
 
 // Props
 const props = defineProps({
@@ -269,6 +341,12 @@ const emit = defineEmits(['close', 'process', 'delete'])
 const storedImages = ref([])
 const loadingImages = ref(false)
 const imagesLoaded = ref(false)
+const imageLoadError = ref(null)
+
+// Token rotation state
+const rotatingTokens = ref(false)
+const rotationProgress = ref(0)
+const rotationTotal = ref(0)
 
 // Image pagination state
 const imagePageSize = ref(32) // 4 rows × 8 columns = 32 images per page
@@ -320,6 +398,7 @@ const loadImages = async () => {
   }
   
   loadingImages.value = true
+  imageLoadError.value = null // Clear previous errors
   try {
     console.log(`[CaptureDetailsModal] Loading images for capture ${props.capture.id}`)
     
@@ -337,10 +416,17 @@ const loadImages = async () => {
     resetImagePagination()
     
     console.log(`[CaptureDetailsModal] Loaded ${images.length} images, first image:`, images[0])
+    
+    // Images are loading successfully through img tags - no need for debug fetch
   } catch (error) {
     console.error('[CaptureDetailsModal] Error loading images:', error)
-    // Show error state to user
-    alert(`Failed to load images: ${error.message}`)
+    
+    // Check if it's a permissions error (likely due to new security rules)
+    if (error.message && (error.message.includes('permission') || error.message.includes('Missing or insufficient permissions'))) {
+      imageLoadError.value = 'security'
+    } else {
+      imageLoadError.value = error.message
+    }
   } finally {
     loadingImages.value = false
   }
@@ -353,9 +439,60 @@ watch([() => props.show, () => props.capture], ([show, capture]) => {
     storedImages.value = []
     imagesLoaded.value = false
     loadingImages.value = false
+    imageLoadError.value = null
+    rotatingTokens.value = false
+    rotationProgress.value = 0
+    rotationTotal.value = 0
     resetImagePagination()
   }
 })
+
+// Token rotation function
+const rotateTokens = async () => {
+  if (!props.capture?.id) {
+    console.log(`[CaptureDetailsModal] No capture ID available for token rotation`)
+    return
+  }
+  
+  rotatingTokens.value = true
+  rotationProgress.value = 0
+  rotationTotal.value = 0
+  
+  try {
+    console.log(`[CaptureDetailsModal] Starting server-side token rotation for capture ${props.capture.id}`)
+    
+    // Call the Cloud Function for server-side token rotation
+    const functions = getFunctions()
+    const rotateTokensFunction = httpsCallable(functions, 'rotateTokensForCapture')
+    
+    const result = await rotateTokensFunction({
+      captureId: props.capture.id,
+      userEmail: props.capture.eenUserEmailField
+    })
+    
+    console.log(`[CaptureDetailsModal] Server-side token rotation complete:`, result.data)
+    
+    // Update progress to show completion
+    rotationProgress.value = result.data.rotated
+    rotationTotal.value = result.data.totalImages
+    
+    // Reload images to show new URLs
+    if (imagesLoaded.value) {
+      await loadImages()
+    }
+    
+    // Show success message
+    alert(`Server-side token rotation complete! ${result.data.rotated} images updated, ${result.data.failed} failed.`)
+    
+  } catch (error) {
+    console.error('[CaptureDetailsModal] Error in server-side token rotation:', error)
+    alert(`Server-side token rotation failed: ${error.message}`)
+  } finally {
+    rotatingTokens.value = false
+    rotationProgress.value = 0
+    rotationTotal.value = 0
+  }
+}
 
 // Handle backdrop clicks for modal
 function handleModalBackdropClick(event) {
