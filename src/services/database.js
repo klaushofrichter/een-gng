@@ -355,6 +355,26 @@ class DatabaseService {
       return { imageCount: 0, totalSize: 0, averageSize: 0 };
     }
   }
+
+  /**
+   * Update the download URL for a specific image (for token rotation)
+   * @param {string} imageId - Image document ID
+   * @param {string} newDownloadUrl - New download URL with fresh token
+   */
+  async updateImageUrl(imageId, newDownloadUrl) {
+    try {
+      const imageRef = doc(this.db, "capture_images", imageId);
+      await updateDoc(imageRef, {
+        downloadUrl: securityService.sanitizeInput(newDownloadUrl),
+        tokenRotatedAt: new Date().toISOString()
+      });
+      
+      console.log(`[DatabaseService] Updated download URL for image ${imageId}`);
+    } catch (error) {
+      console.error(`[DatabaseService] Error updating image URL for ${imageId}:`, error);
+      throw error;
+    }
+  }
 }
 
 // Create and export singleton instance

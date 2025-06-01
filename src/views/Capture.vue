@@ -750,40 +750,40 @@ const handleCreateCapture = async (captureData) => {
 
 // Open modal with selected capture
 const openCaptureModal = (capture) => {
-  console.log("[Capture.vue] Opening modal for capture:", capture);
+  //console.log("[Capture.vue] Opening modal for capture:", capture);
   selectedCapture.value = capture;
   showModal.value = true;
 };
 
 // Close modal
 const closeCaptureModal = () => {
-  console.log("[Capture.vue] Closing capture modal");
+  //console.log("[Capture.vue] Closing capture modal");
   showModal.value = false;
   selectedCapture.value = null;
 };
 
 // Open create modal
 const openCreateModal = () => {
-  console.log("[Capture.vue] Opening create capture modal");
+  //console.log("[Capture.vue] Opening create capture modal");
   showCreateModal.value = true;
 };
 
 // Close create modal
 const closeCreateModal = () => {
-  console.log("[Capture.vue] Closing create capture modal");
+  //console.log("[Capture.vue] Closing create capture modal");
   showCreateModal.value = false;
 };
 
 // Open delete confirmation modal
 const openDeleteModal = (capture) => {
-  console.log("[Capture.vue] Opening delete confirmation for capture:", capture);
+  //console.log("[Capture.vue] Opening delete confirmation for capture:", capture);
   captureToDelete.value = capture;
   showDeleteModal.value = true;
 };
 
 // Close delete confirmation modal
 const closeDeleteModal = () => {
-  console.log("[Capture.vue] Closing delete confirmation modal");
+  //console.log("[Capture.vue] Closing delete confirmation modal");
   showDeleteModal.value = false;
   captureToDelete.value = null;
 };
@@ -805,35 +805,35 @@ const deleteCapture = async (captureFromEvent = null) => {
     
     // Debug Firebase authentication state
     const firebaseUser = firebaseAuthService.getCurrentUser();
-    console.log("[Capture.vue] Firebase authentication state:", {
-      isAuthenticated: firebaseAuthService.isAuthenticated(),
-      currentUser: firebaseUser ? {
-        uid: firebaseUser.uid,
-        email: firebaseUser.email,
-        displayName: firebaseUser.displayName
-      } : null
-    });
+    //console.log("[Capture.vue] Firebase authentication state:", {
+    //  isAuthenticated: firebaseAuthService.isAuthenticated(),
+    //  currentUser: firebaseUser ? {
+    //    uid: firebaseUser.uid,
+    //    email: firebaseUser.email,
+    //    displayName: firebaseUser.displayName
+    //  } : null
+    //});
     
     if (firebaseUser) {
       try {
         const idTokenResult = await firebaseUser.getIdTokenResult();
-        console.log("[Capture.vue] Firebase ID token claims:", {
-          email: idTokenResult.claims.email,
-          eenUserEmail: idTokenResult.claims.eenUserEmail,
-          eenUserId: idTokenResult.claims.eenUserId,
-          provider: idTokenResult.claims.provider,
-          authProvider: idTokenResult.claims.authProvider,
-          expirationTime: idTokenResult.expirationTime,
-          allClaims: idTokenResult.claims
-        });
+        //console.log("[Capture.vue] Firebase ID token claims:", {
+        //  email: idTokenResult.claims.email,
+        //  eenUserEmail: idTokenResult.claims.eenUserEmail,
+        //  eenUserId: idTokenResult.claims.eenUserId,
+        //  provider: idTokenResult.claims.provider,
+        //  authProvider: idTokenResult.claims.authProvider,
+        //  expirationTime: idTokenResult.expirationTime,
+        //  allClaims: idTokenResult.claims
+        //});
       } catch (tokenError) {
         console.error("[Capture.vue] Error getting ID token:", tokenError);
       }
     } else {
-      console.warn("[Capture.vue] No Firebase user found, attempting re-authentication...");
+      //console.warn("[Capture.vue] No Firebase user found, attempting re-authentication...");
       try {
         await firebaseAuthService.signInWithEEN();
-        console.log("[Capture.vue] Re-authentication successful");
+        //console.log("[Capture.vue] Re-authentication successful");
       } catch (authError) {
         console.error("[Capture.vue] Re-authentication failed:", authError);
         throw new Error(`Firebase authentication required: ${authError.message}`);
@@ -850,7 +850,7 @@ const deleteCapture = async (captureFromEvent = null) => {
     
     // Delete the capture and all associated image documents using optimized database service
     await databaseService.deleteCapture(captureId);
-    console.log("[Capture.vue] Capture and image documents deleted successfully");
+    //console.log("[Capture.vue] Capture and image documents deleted successfully");
     
     // Close delete modal and refresh the captures list
     closeDeleteModal();
