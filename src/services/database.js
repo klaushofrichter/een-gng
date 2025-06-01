@@ -214,28 +214,31 @@ class DatabaseService {
         orderBy: orderField = 'index'
       } = options;
 
+      // Simple query without orderBy to avoid composite index requirement
       let q = query(
         collection(this.db, "capture_images"),
         where("captureId", "==", captureId),
-        orderBy(orderField),
         limit(limitCount)
       );
 
-      // Add pagination if specified
-      if (startAfterIndex !== null) {
-        // For index-based pagination, we need to get the document to start after
-        const startAfterImageId = `${captureId}_image-${String(startAfterIndex).padStart(4, '0')}`;
-        const startAfterDoc = await getDoc(doc(this.db, "capture_images", startAfterImageId));
-        if (startAfterDoc.exists()) {
-          q = query(q, startAfter(startAfterDoc));
-        }
-      }
+      // Note: Removed orderBy to avoid composite index requirement
+      // We'll sort in JavaScript instead
 
       const querySnapshot = await getDocs(q);
       const images = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
+
+      // Sort in JavaScript by the specified field
+      images.sort((a, b) => {
+        if (orderField === 'index') {
+          return (a.index || 0) - (b.index || 0);
+        } else if (orderField === 'timestamp') {
+          return new Date(a.timestamp || 0) - new Date(b.timestamp || 0);
+        }
+        return 0;
+      });
 
       console.log(`[DatabaseService] Retrieved ${images.length} images for capture ${captureId}`);
       return images;
