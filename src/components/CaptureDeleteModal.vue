@@ -6,7 +6,7 @@
     @click="handleModalBackdropClick"
   >
     <div 
-      class="relative border w-full max-w-md shadow-2xl rounded-lg bg-white dark:bg-gray-800 transform transition-all duration-300 scale-100"
+      class="relative border w-full max-w-4xl shadow-2xl rounded-lg bg-white dark:bg-gray-800 transform transition-all duration-300 scale-100"
       @click.stop
     >
       <!-- Modal Header -->
