@@ -2,19 +2,26 @@ name: Build Package
 
 on:
   workflow_run:
-    workflows: ["Test GH Pages with Playwright"]
+    workflows: ["Test Coverage Evaluation"]
     types:
       - completed
+    branches:
+      - production
+  workflow_dispatch:
 
-# Add permissions needed for creating releases
+# Add comprehensive permissions needed for accessing artifacts and creating releases
 permissions:
   contents: write
   packages: write
   actions: read
+  pull-requests: read
 
 jobs:
   build-package:
     runs-on: ubuntu-latest
+    # Only run if the coverage workflow completed successfully
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -22,11 +29,323 @@ jobs:
           fetch-depth: 0
 
       - name: Create artifacts directory
-        run: mkdir -p artifacts
+        run: mkdir -p artifacts coverage-reports test-reports
 
       - name: Get version from package.json
         id: package-version
         run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      - name: Find workflow run chain
+        id: workflow-chain
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Get the coverage workflow run that triggered this package workflow
+            let coverageRunId = null;
+            let testRunId = null;
+            
+            if (context.eventName === 'workflow_run') {
+              coverageRunId = context.payload.workflow_run.id;
+              console.log(`Coverage workflow run ID: ${coverageRunId}`);
+              
+              // Get the coverage workflow run details
+              const { data: coverageRun } = await github.rest.actions.getWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: coverageRunId
+              });
+              
+              // The coverage workflow was triggered by the test workflow
+              // Find the test workflow run that triggered the coverage workflow
+              if (coverageRun.event === 'workflow_run') {
+                // Get recent test workflow runs around the same time
+                const { data: testRuns } = await github.rest.actions.listWorkflowRuns({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: 'test-develop.yml',
+                  status: 'success',
+                  per_page: 10
+                });
+                
+                // Find the test run that matches the coverage run's trigger
+                const testRun = testRuns.workflow_runs.find(run => 
+                  Math.abs(new Date(run.created_at) - new Date(coverageRun.created_at)) < 300000 // 5 minutes
+                );
+                
+                if (testRun) {
+                  testRunId = testRun.id;
+                  console.log(`Found corresponding test workflow run ID: ${testRunId}`);
+                }
+              }
+            } else {
+              // Manual trigger - get latest successful runs
+              const [coverageRuns, testRuns] = await Promise.all([
+                github.rest.actions.listWorkflowRuns({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: 'test-coverage.yml',
+                  status: 'success',
+                  per_page: 1
+                }),
+                github.rest.actions.listWorkflowRuns({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: 'test-develop.yml',
+                  status: 'success',
+                  per_page: 1
+                })
+              ]);
+              
+              if (coverageRuns.data.total_count > 0) {
+                coverageRunId = coverageRuns.data.workflow_runs[0].id;
+              }
+              if (testRuns.data.total_count > 0) {
+                testRunId = testRuns.data.workflow_runs[0].id;
+              }
+            }
+            
+            core.setOutput('coverage_run_id', coverageRunId);
+            core.setOutput('test_run_id', testRunId);
+            core.setOutput('runs_found', !!(coverageRunId && testRunId));
+
+      - name: Download coverage reports
+        id: download-coverage
+        if: steps.workflow-chain.outputs.coverage_run_id
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runId = '${{ steps.workflow-chain.outputs.coverage_run_id }}';
+            console.log(`Downloading coverage artifacts from run: ${runId}`);
+            
+            // Get artifacts from the coverage workflow run
+            const { data: artifacts } = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: runId
+            });
+            
+            // Find coverage reports artifact
+            const coverageArtifact = artifacts.artifacts.find(a => 
+              a.name.includes('coverage-reports')
+            );
+            
+            if (!coverageArtifact) {
+              console.log('No coverage reports artifact found');
+              return;
+            }
+            
+            console.log(`Downloading coverage artifact: ${coverageArtifact.name}`);
+            
+            // Download the artifact
+            const download = await github.rest.actions.downloadArtifact({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              artifact_id: coverageArtifact.id,
+              archive_format: 'zip'
+            });
+            
+            // Save the artifact
+            const fs = require('fs');
+            fs.writeFileSync('coverage-reports.zip', Buffer.from(download.data));
+            
+            core.setOutput('coverage_available', 'true');
+            core.setOutput('coverage_date', coverageArtifact.created_at);
+
+      - name: Download test reports
+        id: download-tests
+        if: steps.workflow-chain.outputs.test_run_id
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runId = '${{ steps.workflow-chain.outputs.test_run_id }}';
+            console.log(`Downloading test artifacts from run: ${runId}`);
+            
+            // Get artifacts from the test workflow run
+            const { data: artifacts } = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: runId
+            });
+            
+            // Find test reports artifacts
+            const testArtifacts = artifacts.artifacts.filter(a => 
+              a.name.includes('playwright-report') || a.name.includes('test-videos') || a.name.includes('test-results')
+            );
+            
+            if (testArtifacts.length === 0) {
+              console.log('No test artifacts found');
+              return;
+            }
+            
+            console.log(`Found ${testArtifacts.length} test artifacts`);
+            
+            // Download all test artifacts and combine them
+            const fs = require('fs');
+            const path = require('path');
+            
+            // Create test-reports directory
+            if (!fs.existsSync('test-reports-temp')) {
+              fs.mkdirSync('test-reports-temp');
+            }
+            
+            for (const artifact of testArtifacts) {
+              console.log(`Downloading test artifact: ${artifact.name}`);
+              
+              const download = await github.rest.actions.downloadArtifact({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                artifact_id: artifact.id,
+                archive_format: 'zip'
+              });
+              
+              fs.writeFileSync(`test-reports-temp/${artifact.name}.zip`, Buffer.from(download.data));
+            }
+            
+            core.setOutput('tests_available', 'true');
+            core.setOutput('test_date', testArtifacts[0].created_at);
+            core.setOutput('test_artifacts_count', testArtifacts.length);
+
+      - name: Extract coverage reports
+        if: steps.download-coverage.outputs.coverage_available == 'true'
+        run: |
+          echo "Extracting coverage reports..."
+          unzip -q coverage-reports.zip -d coverage-reports/
+          ls -la coverage-reports/
+          
+          # Create a coverage summary for the release
+          if [ -f "coverage-reports/coverage-summary.json" ]; then
+            echo "Creating coverage summary for release..."
+            node << 'EOF'
+            const fs = require('fs');
+            const summary = JSON.parse(fs.readFileSync('coverage-reports/coverage-summary.json', 'utf8'));
+            
+            const coverageReport = `# Test Coverage Report
+            
+            **Coverage Date**: ${{ steps.download-coverage.outputs.coverage_date }}
+            **Workflow Run**: https://github.com/${{ github.repository }}/actions/runs/${{ steps.workflow-chain.outputs.coverage_run_id }}
+            
+            ## Coverage Metrics
+            
+            | Metric | Coverage | Threshold | Status |
+            |--------|----------|-----------|--------|
+            | Statements | ${summary.total.statements.pct}% | 25% | ${summary.total.statements.pct >= 25 ? '✅' : '❌'} |
+            | Branches | ${summary.total.branches.pct}% | 10% | ${summary.total.branches.pct >= 10 ? '✅' : '❌'} |
+            | Functions | ${summary.total.functions.pct}% | 20% | ${summary.total.functions.pct >= 20 ? '✅' : '❌'} |
+            | Lines | ${summary.total.lines.pct}% | 25% | ${summary.total.lines.pct >= 25 ? '✅' : '❌'} |
+            
+            ## Coverage Details
+            
+            - **Total Statements**: ${summary.total.statements.covered}/${summary.total.statements.total} (${summary.total.statements.pct}%)
+            - **Total Branches**: ${summary.total.branches.covered}/${summary.total.branches.total} (${summary.total.branches.pct}%)
+            - **Total Functions**: ${summary.total.functions.covered}/${summary.total.functions.total} (${summary.total.functions.pct}%)
+            - **Total Lines**: ${summary.total.lines.covered}/${summary.total.lines.total} (${summary.total.lines.pct}%)
+            
+            ## Quality Assessment
+            
+            ${(summary.total.statements.pct >= 25 && summary.total.branches.pct >= 10 && summary.total.functions.pct >= 20 && summary.total.lines.pct >= 25) ? 
+              '🎉 **All coverage thresholds met!** This release maintains good test coverage.' : 
+              '⚠️ **Some coverage thresholds not met.** Consider reviewing test coverage before deployment.'}
+            `;
+            
+            fs.writeFileSync('COVERAGE-REPORT.md', coverageReport);
+            EOF
+            
+            echo "Coverage summary created"
+          fi
+
+      - name: Extract test reports
+        if: steps.download-tests.outputs.tests_available == 'true'
+        run: |
+          echo "Extracting test reports..."
+          echo "Found ${{ steps.download-tests.outputs.test_artifacts_count }} test artifacts"
+          
+          # Extract all test artifacts to test-reports directory
+          mkdir -p test-reports
+          
+          # Extract each artifact
+          for zip_file in test-reports-temp/*.zip; do
+            if [ -f "$zip_file" ]; then
+              echo "Extracting $(basename "$zip_file")"
+              unzip -q "$zip_file" -d test-reports/
+            fi
+          done
+          
+          # List contents
+          echo "Test reports structure:"
+          ls -la test-reports/
+          
+          # Create a test summary for the release
+          echo "Creating test summary for release..."
+          node << 'EOF'
+          const fs = require('fs');
+          
+          const testReport = `# Test Results Report
+          
+          **Test Date**: ${{ steps.download-tests.outputs.test_date }}
+          **Workflow Run**: https://github.com/${{ github.repository }}/actions/runs/${{ steps.workflow-chain.outputs.test_run_id }}
+          **Artifacts Count**: ${{ steps.download-tests.outputs.test_artifacts_count }}
+          
+          ## Test Artifacts Included
+          
+          📋 **Playwright HTML Report**: Interactive test results with detailed logs  
+          🎥 **Test Videos**: Recordings of failed tests for debugging  
+          📸 **Screenshots**: Visual evidence of test failures  
+          🔍 **Trace Files**: Detailed execution traces for failed tests  
+          📊 **Test Results**: JSON data with pass/fail statistics  
+          
+          ## How to Use Test Reports
+          
+          1. **Download** the test reports package from release assets
+          2. **Extract** the zip file to access test artifacts
+          3. **Open** \`index.html\` in the extracted folder to view the interactive report
+          4. **Review** failed tests by clicking on test names in the report
+          5. **Analyze** screenshots and videos for debugging failures
+          
+          ## Test Report Features
+          
+          - 🎯 **Interactive Navigation**: Click through test suites and individual tests
+          - 📱 **Responsive Design**: View reports on desktop or mobile
+          - 🔗 **Deep Linking**: Share direct links to specific test results
+          - 📈 **Execution Timeline**: See how long each test took
+          - 🎬 **Video Playback**: Watch test executions in real-time
+          `;
+          
+          fs.writeFileSync('TEST-REPORT.md', testReport);
+          EOF
+          
+          echo "Test summary created"
+
+      - name: Verify artifacts availability
+        id: verify-artifacts
+        run: |
+          echo "Verifying available artifacts..."
+          
+          # Check coverage
+          if [ -d "coverage-reports" ] && [ "$(ls -A coverage-reports)" ]; then
+            echo "✅ Coverage reports available"
+            echo "coverage_ready=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Coverage reports not available"
+            echo "coverage_ready=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Check test reports
+          if [ -d "test-reports" ] && [ "$(ls -A test-reports)" ]; then
+            echo "✅ Test reports available"
+            echo "tests_ready=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Test reports not available"
+            echo "tests_ready=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Check if we can proceed with packaging
+          if [ "${{ steps.workflow-chain.outputs.runs_found }}" = "true" ]; then
+            echo "✅ Source workflow runs found"
+            echo "can_package=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ No source workflow runs found, packaging source only"
+            echo "can_package=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Create source code package
         id: create-source-code-package
@@ -41,6 +360,7 @@ jobs:
           echo "version: ${{ steps.package-version.outputs.version }}"
           echo "repository: ${{ github.repository }}"
           echo "artifacts: artifacts/${REPO_NAME}-src_v${{ steps.package-version.outputs.version }}.zip"
+          
           zip -r artifacts/${REPO_NAME}-src_v${{ steps.package-version.outputs.version }}.zip . \
             -x "node_modules/*" \
             -x "dist/*" \
@@ -51,7 +371,83 @@ jobs:
             -x "**/secrets.*" \
             -x "**/config.*" \
             -x "**/credentials.*" \
-            -x "**/*.zip"
+            -x "**/*.zip" \
+            -x "coverage-reports.zip" \
+            -x "test-reports-temp/*"
+          
+          # Create separate coverage package if coverage reports exist
+          if [ "${{ steps.verify-artifacts.outputs.coverage_ready }}" = "true" ]; then
+            echo "Creating separate coverage reports package"
+            zip -r artifacts/${REPO_NAME}-coverage_v${{ steps.package-version.outputs.version }}.zip \
+              coverage-reports/* \
+              COVERAGE-REPORT.md
+            echo "coverage_package=artifacts/${REPO_NAME}-coverage_v${{ steps.package-version.outputs.version }}.zip" >> $GITHUB_OUTPUT
+            echo "✅ Coverage package created"
+          else
+            echo "⚠️ Skipping coverage package - no coverage data available"
+          fi
+          
+          # Create separate test reports package if test reports exist
+          if [ "${{ steps.verify-artifacts.outputs.tests_ready }}" = "true" ]; then
+            echo "Creating separate test reports package"
+            zip -r artifacts/${REPO_NAME}-test-reports_v${{ steps.package-version.outputs.version }}.zip \
+              test-reports/* \
+              TEST-REPORT.md
+            echo "test_package=artifacts/${REPO_NAME}-test-reports_v${{ steps.package-version.outputs.version }}.zip" >> $GITHUB_OUTPUT
+            echo "✅ Test reports package created"
+          else
+            echo "⚠️ Skipping test reports package - no test data available"
+          fi
+          
+          # Create combined QA package if both coverage and test reports exist
+          if [ "${{ steps.verify-artifacts.outputs.coverage_ready }}" = "true" ] && [ "${{ steps.verify-artifacts.outputs.tests_ready }}" = "true" ]; then
+            echo "Creating combined QA package"
+            mkdir -p qa-package
+            cp -r coverage-reports qa-package/
+            cp -r test-reports qa-package/
+            cp COVERAGE-REPORT.md qa-package/ 2>/dev/null || true
+            cp TEST-REPORT.md qa-package/ 2>/dev/null || true
+            
+            # Create a combined README
+            echo "# Quality Assurance Package" > qa-package/README.md
+            echo "" >> qa-package/README.md
+            echo "This package contains comprehensive test and coverage reports for this release." >> qa-package/README.md
+            echo "" >> qa-package/README.md
+            echo "## Contents" >> qa-package/README.md
+            echo "" >> qa-package/README.md
+            echo "### 📊 Coverage Reports (coverage-reports/)" >> qa-package/README.md
+            echo "- **HTML Report**: Open coverage-reports/index.html for interactive coverage visualization" >> qa-package/README.md
+            echo "- **LCOV Data**: For integration with IDEs and other tools" >> qa-package/README.md
+            echo "- **JSON Summary**: Machine-readable coverage metrics" >> qa-package/README.md
+            echo "" >> qa-package/README.md
+            echo "### 🧪 Test Reports (test-reports/)" >> qa-package/README.md
+            echo "- **Playwright Report**: Open test-reports/index.html for interactive test results" >> qa-package/README.md
+            echo "- **Test Artifacts**: Screenshots, videos, and traces from test execution" >> qa-package/README.md
+            echo "- **Test Data**: Raw test results and logs" >> qa-package/README.md
+            echo "" >> qa-package/README.md
+            echo "## Quick Start" >> qa-package/README.md
+            echo "" >> qa-package/README.md
+            echo "1. Extract this package" >> qa-package/README.md
+            echo "2. Open coverage-reports/index.html to view coverage" >> qa-package/README.md
+            echo "3. Open test-reports/index.html to view test results" >> qa-package/README.md
+            echo "4. Review COVERAGE-REPORT.md and TEST-REPORT.md for summaries" >> qa-package/README.md
+            echo "" >> qa-package/README.md
+            echo "## Links" >> qa-package/README.md
+            echo "" >> qa-package/README.md
+            echo "- Coverage Workflow: See COVERAGE-REPORT.md" >> qa-package/README.md
+            echo "- Test Workflow: See TEST-REPORT.md" >> qa-package/README.md
+            
+            zip -r artifacts/${REPO_NAME}-qa-package_v${{ steps.package-version.outputs.version }}.zip qa-package/*
+            echo "qa_package=artifacts/${REPO_NAME}-qa-package_v${{ steps.package-version.outputs.version }}.zip" >> $GITHUB_OUTPUT
+            echo "✅ Combined QA package created"
+          else
+            echo "⚠️ Skipping combined QA package - missing coverage or test data"
+          fi
+          
+          # Clean up temporary files
+          rm -rf test-reports-temp coverage-reports.zip
+          
+          echo "📦 Package creation summary:"
           ls -al artifacts
 
       - name: Upload source code artifact
@@ -61,12 +457,94 @@ jobs:
           path: artifacts/${{ steps.create-source-code-package.outputs.REPO_NAME }}-src_v${{ steps.package-version.outputs.version }}.zip
           retention-days: 5
 
+      - name: Upload coverage reports artifact
+        if: steps.verify-artifacts.outputs.coverage_ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.create-source-code-package.outputs.REPO_NAME }}-coverage_v${{ steps.package-version.outputs.version }}
+          path: ${{ steps.create-source-code-package.outputs.coverage_package }}
+          retention-days: 5
+
+      - name: Upload test reports artifact
+        if: steps.verify-artifacts.outputs.tests_ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.create-source-code-package.outputs.REPO_NAME }}-test-reports_v${{ steps.package-version.outputs.version }}
+          path: ${{ steps.create-source-code-package.outputs.test_package }}
+          retention-days: 5
+
+      - name: Upload QA package artifact
+        if: steps.verify-artifacts.outputs.coverage_ready == 'true' && steps.verify-artifacts.outputs.tests_ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.create-source-code-package.outputs.REPO_NAME }}-qa-package_v${{ steps.package-version.outputs.version }}
+          path: ${{ steps.create-source-code-package.outputs.qa_package }}
+          retention-days: 5
+
+      - name: Prepare release description
+        id: release-description
+        run: |
+          echo "Preparing release description..."
+          
+          # Start with basic release info
+          echo "# Release v${{ steps.package-version.outputs.version }}" > RELEASE-DESCRIPTION.md
+          echo "" >> RELEASE-DESCRIPTION.md
+          
+          # Add coverage report if available
+          if [ "${{ steps.verify-artifacts.outputs.coverage_ready }}" = "true" ] && [ -f "COVERAGE-REPORT.md" ]; then
+            echo "## 📊 Test Coverage Assessment" >> RELEASE-DESCRIPTION.md
+            echo "" >> RELEASE-DESCRIPTION.md
+            cat COVERAGE-REPORT.md >> RELEASE-DESCRIPTION.md
+            echo "" >> RELEASE-DESCRIPTION.md
+          fi
+          
+          # Add test report if available
+          if [ "${{ steps.verify-artifacts.outputs.tests_ready }}" = "true" ] && [ -f "TEST-REPORT.md" ]; then
+            echo "## 🧪 Test Results Summary" >> RELEASE-DESCRIPTION.md
+            echo "" >> RELEASE-DESCRIPTION.md
+            cat TEST-REPORT.md >> RELEASE-DESCRIPTION.md
+            echo "" >> RELEASE-DESCRIPTION.md
+          fi
+          
+          # Add QA package info if available
+          if [ "${{ steps.verify-artifacts.outputs.coverage_ready }}" = "true" ] && [ "${{ steps.verify-artifacts.outputs.tests_ready }}" = "true" ]; then
+            echo "## 🎯 Quality Assurance Package" >> RELEASE-DESCRIPTION.md
+            echo "" >> RELEASE-DESCRIPTION.md
+            echo "This release includes a comprehensive QA package with:" >> RELEASE-DESCRIPTION.md
+            echo "- 📊 **Coverage Reports**: Interactive HTML coverage analysis" >> RELEASE-DESCRIPTION.md
+            echo "- 🧪 **Test Reports**: Playwright test results with videos and traces" >> RELEASE-DESCRIPTION.md
+            echo "- 📋 **Combined Package**: All QA data in one convenient download" >> RELEASE-DESCRIPTION.md
+            echo "" >> RELEASE-DESCRIPTION.md
+          fi
+          
+          # Add workflow information
+          echo "## 🔗 Workflow Information" >> RELEASE-DESCRIPTION.md
+          echo "" >> RELEASE-DESCRIPTION.md
+          if [ "${{ steps.workflow-chain.outputs.runs_found }}" = "true" ]; then
+            echo "**Source Workflows:**" >> RELEASE-DESCRIPTION.md
+            if [ "${{ steps.workflow-chain.outputs.test_run_id }}" ]; then
+              echo "- [Test Workflow](https://github.com/${{ github.repository }}/actions/runs/${{ steps.workflow-chain.outputs.test_run_id }})" >> RELEASE-DESCRIPTION.md
+            fi
+            if [ "${{ steps.workflow-chain.outputs.coverage_run_id }}" ]; then
+              echo "- [Coverage Workflow](https://github.com/${{ github.repository }}/actions/runs/${{ steps.workflow-chain.outputs.coverage_run_id }})" >> RELEASE-DESCRIPTION.md
+            fi
+          else
+            echo "- Manual release creation" >> RELEASE-DESCRIPTION.md
+          fi
+          
+          echo "release_body_ready=true" >> $GITHUB_OUTPUT
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ steps.package-version.outputs.version }}
           name: Release v${{ steps.package-version.outputs.version }}
-          files: artifacts/${{ steps.create-source-code-package.outputs.REPO_NAME }}-src_v${{ steps.package-version.outputs.version }}.zip
+          files: |
+            artifacts/${{ steps.create-source-code-package.outputs.REPO_NAME }}-src_v${{ steps.package-version.outputs.version }}.zip
+            ${{ steps.create-source-code-package.outputs.coverage_package }}
+            ${{ steps.create-source-code-package.outputs.test_package }}
+            ${{ steps.create-source-code-package.outputs.qa_package }}
+          body_path: RELEASE-DESCRIPTION.md
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
