@@ -321,11 +321,11 @@ export default defineConfig(({ command, mode }) => {
             dest: '.'
           },
           {
-            src: 'node_modules/@firebase/app-check-compat/dist/esm/index.esm.js',
+            src: 'node_modules/@firebase/app-check-compat/dist/esm/index.esm2017.js',
             dest: 'assets/firebase'
           },
           {
-            src: 'node_modules/@firebase/app-check/dist/esm/index.esm.js',
+            src: 'node_modules/@firebase/app-check/dist/esm/index.esm2017.js',
             dest: 'assets/firebase'
           }
         ]
