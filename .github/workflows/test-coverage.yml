@@ -1,0 +1,299 @@
+name: Test Coverage Evaluation
+
+on:
+  workflow_run:
+    workflows: ["Test Branch with Playwright against Vite Server"]
+    types:
+      - completed
+    branches:
+      - '**'  # Run on all branches when the test workflow completes
+  pull_request:
+    branches:
+      - production
+      - develop
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
+    
+    env:
+      VITE_EEN_CLIENT_ID: ${{ secrets.VITE_EEN_CLIENT_ID }}
+      VITE_EEN_CLIENT_SECRET: ${{ secrets.VITE_EEN_CLIENT_SECRET }}
+      VITE_REDIRECT_URI: ${{ secrets.VITE_REDIRECT_URI }}
+      VITE_AUTH_PROXY_URL: https://een-login.klaushofrichter.workers.dev
+      VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+      VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+      VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+      VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+      VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+      VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+      VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
+      TEST_USER: ${{ secrets.TEST_USER }}
+      TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+      PLAYWRIGHT_TEST_BASE_URL: http://127.0.0.1:3333
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # For workflow_run events, checkout the source branch
+          ref: ${{ github.event.workflow_run.head_branch || github.head_ref || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Verify Node.js version
+        run: npm run check-node
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Clean previous coverage data
+        run: npm run coverage:clean
+
+      - name: Start Vite server with coverage instrumentation
+        run: |
+          NODE_ENV=test npm run dev &
+          SERVER_PID=$!
+          echo "Started Vite server with coverage instrumentation (PID: $SERVER_PID)"
+          echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
+          
+          # Wait for server to be ready
+          echo "Waiting for server to start..."
+          timeout=60
+          while ! curl -s http://127.0.0.1:3333 > /dev/null; do
+            if [ $timeout -le 0 ]; then
+              echo "❌ Server failed to start within 60 seconds"
+              kill $SERVER_PID 2>/dev/null || true
+              exit 1
+            fi
+            echo "Waiting... ($timeout seconds remaining)"
+            sleep 1
+            timeout=$((timeout-1))
+          done
+          echo "✅ Server is ready!"
+
+      - name: Verify coverage instrumentation
+        run: |
+          echo "Testing server response and coverage instrumentation..."
+          curl -I http://127.0.0.1:3333
+          # Run a quick debug test to verify coverage is working
+          npx playwright test tests/coverage-debug.spec.js --reporter=list || echo "Debug test completed"
+
+      - name: Run Playwright tests with coverage collection
+        run: |
+          echo "Running tests with coverage collection..."
+          npx playwright test --reporter=list
+          echo "Tests completed, checking for coverage data..."
+          ls -la coverage/ || echo "No coverage directory found yet"
+
+      - name: Stop Vite server
+        if: always()
+        run: |
+          if [ ! -z "$SERVER_PID" ]; then
+            echo "Stopping server with PID: $SERVER_PID"
+            kill $SERVER_PID 2>/dev/null || true
+            sleep 2
+          fi
+
+      - name: Process coverage data
+        run: |
+          echo "Processing coverage data..."
+          npm run coverage:process
+          echo "Coverage processing completed"
+          
+          # Verify coverage reports were generated
+          if [ -f "coverage/reports/coverage-summary.json" ]; then
+            echo "✅ Coverage summary generated"
+            cat coverage/reports/coverage-summary.json
+          else
+            echo "❌ Coverage summary not found"
+            ls -la coverage/ || echo "No coverage directory"
+            exit 1
+          fi
+
+      - name: Generate coverage summary
+        id: coverage
+        run: |
+          if [ -f "coverage/reports/coverage-summary.json" ]; then
+            # Extract coverage percentages using node and perform comparisons
+            node << 'EOF'
+            const fs = require('fs');
+            const summary = JSON.parse(fs.readFileSync('coverage/reports/coverage-summary.json', 'utf8'));
+            
+            const statements = summary.total.statements.pct;
+            const branches = summary.total.branches.pct;
+            const functions = summary.total.functions.pct;
+            const lines = summary.total.lines.pct;
+            
+            // Set GitHub outputs
+            console.log(`statements=${statements}`);
+            console.log(`branches=${branches}`);
+            console.log(`functions=${functions}`);
+            console.log(`lines=${lines}`);
+            
+            // Determine coverage status based on thresholds
+            const statementsPass = statements >= 25 ? '✅' : '❌';
+            const branchesPass = branches >= 10 ? '✅' : '❌';
+            const functionsPass = functions >= 20 ? '✅' : '❌';
+            const linesPass = lines >= 25 ? '✅' : '❌';
+            
+            console.log(`statements_pass=${statementsPass}`);
+            console.log(`branches_pass=${branchesPass}`);
+            console.log(`functions_pass=${functionsPass}`);
+            console.log(`lines_pass=${linesPass}`);
+            
+            // Overall pass/fail
+            const overallPass = (statements >= 25 && branches >= 10 && functions >= 20 && lines >= 25) ? '✅ PASS' : '❌ FAIL';
+            console.log(`overall_pass=${overallPass}`);
+            
+            // Write to GitHub outputs
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `statements=${statements}\n`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `branches=${branches}\n`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `functions=${functions}\n`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `lines=${lines}\n`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `statements_pass=${statementsPass}\n`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `branches_pass=${branchesPass}\n`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `functions_pass=${functionsPass}\n`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `lines_pass=${linesPass}\n`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `overall_pass=${overallPass}\n`);
+            EOF
+          else
+            echo "Coverage summary file not found"
+            exit 1
+          fi
+
+      - name: Comment coverage results on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const statements = '${{ steps.coverage.outputs.statements }}';
+            const branches = '${{ steps.coverage.outputs.branches }}';
+            const functions = '${{ steps.coverage.outputs.functions }}';
+            const lines = '${{ steps.coverage.outputs.lines }}';
+            const statements_pass = '${{ steps.coverage.outputs.statements_pass }}';
+            const branches_pass = '${{ steps.coverage.outputs.branches_pass }}';
+            const functions_pass = '${{ steps.coverage.outputs.functions_pass }}';
+            const lines_pass = '${{ steps.coverage.outputs.lines_pass }}';
+            const overall_pass = '${{ steps.coverage.outputs.overall_pass }}';
+            
+            const coverageComment = `## 📊 Test Coverage Report
+            
+            **Overall Status**: ${overall_pass || 'Unknown'}
+            
+            | Metric | Coverage | Threshold | Status |
+            |--------|----------|-----------|--------|
+            | Statements | ${statements || 'N/A'}% | 25% | ${statements_pass || '❓'} |
+            | Branches | ${branches || 'N/A'}% | 10% | ${branches_pass || '❓'} |
+            | Functions | ${functions || 'N/A'}% | 20% | ${functions_pass || '❓'} |
+            | Lines | ${lines || 'N/A'}% | 25% | ${lines_pass || '❓'} |
+            
+            ### 📈 Coverage Details
+            
+            - **Statements**: ${statements || 'N/A'}% (threshold: 25%)
+            - **Branches**: ${branches || 'N/A'}% (threshold: 10%)
+            - **Functions**: ${functions || 'N/A'}% (threshold: 20%)
+            - **Lines**: ${lines || 'N/A'}% (threshold: 25%)
+            
+            ### 📋 What This Means
+            
+            ${overall_pass === '✅ PASS' ? 
+              '🎉 **All coverage thresholds met!** Your code changes maintain good test coverage.' : 
+              '⚠️ **Some coverage thresholds not met.** Consider adding more tests to improve coverage.'}
+            
+            ### 🔍 Coverage Reports
+            
+            The detailed HTML coverage report has been uploaded as a workflow artifact. You can download it from the Actions tab to see file-by-file coverage details.
+            
+            ### 🚀 Next Steps
+            
+            ${overall_pass === '✅ PASS' ? 
+              '- Great job maintaining test coverage!\\n- Consider reviewing the detailed report to identify areas for improvement.' :
+              '- Review the coverage report to identify uncovered code paths\\n- Add tests for critical functionality with low coverage\\n- Focus on service layer files which currently have the lowest coverage'}
+            
+            ---
+            *This comment was automatically generated by the Test Coverage workflow.*`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: coverageComment
+            });
+
+      - name: Upload coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports-${{ github.run_number }}
+          path: coverage/reports/
+          retention-days: 30
+
+      - name: Upload coverage raw data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-raw-data-${{ github.run_number }}
+          path: coverage/
+          retention-days: 14
+
+      - name: Check coverage thresholds
+        run: |
+          echo "Checking if coverage meets minimum thresholds..."
+          # Use the coverage summary to determine if thresholds are met
+          if [ -f "coverage/reports/coverage-summary.json" ]; then
+            node << 'EOF'
+            const fs = require('fs');
+            const summary = JSON.parse(fs.readFileSync('coverage/reports/coverage-summary.json', 'utf8'));
+            
+            const statements = summary.total.statements.pct;
+            const branches = summary.total.branches.pct;
+            const functions = summary.total.functions.pct;
+            const lines = summary.total.lines.pct;
+            
+            console.log(`Coverage Results:`);
+            console.log(`- Statements: ${statements}% (threshold: 25%)`);
+            console.log(`- Branches: ${branches}% (threshold: 10%)`);
+            console.log(`- Functions: ${functions}% (threshold: 20%)`);
+            console.log(`- Lines: ${lines}% (threshold: 25%)`);
+            
+            if (statements >= 25 && branches >= 10 && functions >= 20 && lines >= 25) {
+              console.log('✅ All coverage thresholds met!');
+              process.exit(0);
+            } else {
+              console.log('❌ Coverage thresholds not met');
+              console.log('See the coverage report for details on which files need more test coverage');
+              process.exit(1);
+            }
+            EOF
+          else
+            echo "❌ Coverage summary not found"
+            exit 1
+          fi
+
+  coverage-summary:
+    runs-on: ubuntu-latest
+    needs: coverage
+    if: always()
+    steps:
+      - name: Coverage workflow summary
+        run: |
+          if [ "${{ needs.coverage.result }}" == "success" ]; then
+            echo "✅ Coverage evaluation completed successfully"
+            echo "📊 Coverage reports have been generated and uploaded"
+            echo "💬 PR comment posted with coverage results (if applicable)"
+          else
+            echo "❌ Coverage evaluation failed"
+            echo "🔍 Check the coverage job logs for details"
+          fi 
