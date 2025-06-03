@@ -1,0 +1,39 @@
+{
+  "include": [
+    "src/**/*.js",
+    "src/**/*.vue"
+  ],
+  "exclude": [
+    "tests/**",
+    "dist/**",
+    "node_modules/**",
+    "coverage/**",
+    "scripts/**",
+    "*.config.js",
+    "*.config.ts"
+  ],
+  "extension": [
+    ".js",
+    ".vue"
+  ],
+  "reporter": [
+    "html",
+    "text",
+    "json-summary",
+    "lcov"
+  ],
+  "report-dir": "coverage/reports",
+  "temp-dir": "coverage/tmp",
+  "all": true,
+  "check-coverage": true,
+  "statements": 25,
+  "branches": 10,
+  "functions": 20,
+  "lines": 25,
+  "watermarks": {
+    "statements": [25, 50],
+    "branches": [10, 30],
+    "functions": [20, 40],
+    "lines": [25, 50]
+  }
+} 

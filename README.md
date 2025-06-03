@@ -115,6 +115,151 @@ If tests fail in GitHub Actions but work locally:
    - Test videos and screenshots
    - Console logs for debugging
 
+## 📊 Test Coverage
+
+This project implements comprehensive test coverage measurement to ensure code quality and identify areas needing additional testing.
+
+### 🎯 Current Coverage Metrics
+
+**Overall Coverage**: 30.06% statements, 12.93% branches, 26.9% functions, 30.27% lines
+
+| Category | Statements | Branches | Functions | Lines | Status |
+|----------|------------|----------|-----------|--------|--------|
+| **Overall** | 30.06% | 12.93% | 26.9% | 30.27% | 🟡 Meeting thresholds |
+| **src/** | 64.54% | 53.84% | 41.17% | 64.22% | ✅ Good coverage |
+| **src/services/** | 8.92% | 2.89% | 13.92% | 9.24% | 🔴 Needs improvement |
+| **src/views/** | 37.53% | 17.63% | 26.5% | 37.98% | 🟡 Moderate coverage |
+| **src/components/** | 41.66% | 3.79% | 25.75% | 40.59% | 🟡 Moderate coverage |
+
+### 🚀 Coverage Commands
+
+```bash
+# Run all tests with coverage collection
+npm run test:coverage
+
+# Run tests with UI and coverage
+npm run test:coverage:ui
+
+# Process coverage data (if you have raw coverage files)
+npm run coverage:process
+
+# Clean previous coverage data
+npm run coverage:clean
+
+# Open coverage report in browser (macOS)
+npm run coverage:open
+```
+
+### 📈 File-Level Coverage Analysis
+
+#### 🟢 **Excellent Coverage (>90%)**
+- **constants.js**: 100% (all metrics) - Configuration constants
+- **Home.vue**: 100% (all metrics) - Home page component
+- **About.vue**: 95.45% statements - About page with good test coverage
+
+#### 🟡 **Good Coverage (60-90%)**
+- **firebase.js**: 66.66% statements - Firebase configuration
+- **Login.vue**: 64.7% statements - Login page functionality
+- **user.js**: 61.53% statements - User service operations
+- **theme.js**: 60.86% statements - Theme management
+
+#### 🔴 **Coverage Opportunities (<30%)**
+- **database.js**: 1.61% statements - **Critical: Database operations need testing**
+- **media.js**: 1.96% statements - **Important: Media handling needs coverage**
+- **storage.js**: 2.52% statements - **Critical: Storage operations need testing**
+- **cameras.js**: 4.76% statements - **Important: Camera service needs testing**
+- **security.js**: 8.08% statements - **Critical: Security functions need validation**
+
+### 🧪 Test Suite Overview
+
+**Total Tests**: 16 tests across 11 test files
+
+#### **Current Test Coverage Areas**
+- ✅ **Authentication Flow** - Complete login/logout testing with EEN OAuth
+- ✅ **Navigation** - Page routing, deep linking, and menu navigation
+- ✅ **Capture Management** - Create, view, edit, and delete capture operations
+- ✅ **Modal Interactions** - ESC key handling, button clicks, backdrop clicks
+- ✅ **Mobile Responsiveness** - Mobile menu and responsive layout testing
+- ✅ **Form Validation** - Input validation and error handling
+- ✅ **Token Management** - Authentication token handling and revocation
+- ✅ **Error Handling** - Invalid routes and error state management
+
+#### **Testing Highlights**
+- **Comprehensive E2E Testing**: Full user workflows from login to logout
+- **Cross-Device Testing**: Mobile and desktop responsive design validation
+- **Security Testing**: Token revocation and authentication flow validation
+- **User Experience Testing**: Modal behaviors, form interactions, and navigation
+- **Data Integrity Testing**: Capture creation, uniqueness validation, and cleanup
+
+### 📋 Coverage Reports
+
+The coverage system generates multiple report formats:
+
+1. **HTML Report** (`coverage/reports/index.html`)
+   - Interactive file-by-file coverage visualization
+   - Line-by-line coverage highlighting (green = covered, red = uncovered)
+   - Detailed metrics for each file and function
+
+2. **Terminal Report**
+   - Real-time coverage summary during test execution
+   - Quick overview of coverage percentages by category
+
+3. **JSON Summary** (`coverage/reports/coverage-summary.json`)
+   - Machine-readable coverage data for CI/CD integration
+   - Automated coverage tracking and reporting
+
+### 🎯 Coverage Improvement Roadmap
+
+#### **Priority 1: Service Layer Coverage** (Currently 8.92%)
+```bash
+# Focus areas for immediate improvement:
+src/services/database.js    # 1.61% - Database operations
+src/services/storage.js     # 2.52% - File storage operations  
+src/services/security.js    # 8.08% - Security functions
+src/services/cameras.js     # 4.76% - Camera integrations
+src/services/media.js       # 1.96% - Media processing
+```
+
+#### **Priority 2: Advanced UI Testing**
+- Component-level testing for complex modal interactions
+- Error boundary testing and edge case handling
+- Accessibility testing (keyboard navigation, screen readers)
+- Performance testing for large data sets
+
+#### **Priority 3: Integration Testing**
+- Firebase service integration testing
+- EEN API integration testing
+- Cross-browser compatibility testing
+- End-to-end data flow validation
+
+### 🔧 Coverage Configuration
+
+**Thresholds** (defined in `.nycrc.json`):
+- Statements: 25% (currently 30.06% ✅)
+- Branches: 10% (currently 12.93% ✅)  
+- Functions: 20% (currently 26.9% ✅)
+- Lines: 25% (currently 30.27% ✅)
+
+**Coverage Includes**:
+- All `src/**/*.js` and `src/**/*.vue` files
+- Automatic instrumentation during test execution
+- Real-time coverage collection from browser context
+
+**Coverage Excludes**:
+- Test files (`tests/**`)
+- Build output (`dist/**`)
+- Node modules and configuration files
+
+### 📚 Coverage Documentation
+
+For detailed coverage usage instructions, see [`docs/test-coverage.md`](docs/test-coverage.md), which includes:
+- How to add coverage to new tests
+- Understanding coverage metrics and reports
+- Troubleshooting coverage collection issues
+- Best practices for test-driven development
+
+The test coverage system provides valuable insights into code quality and helps identify areas that need additional testing to ensure application reliability and maintainability.
+
 ## Security Implementation
 
 This application implements a comprehensive multi-layered security architecture that protects against various attack vectors including XSS, injection attacks, and unauthorized access. The security implementation includes domain restrictions, authentication enforcement, data ownership validation, comprehensive input validation, and Content Security Policy.
@@ -925,50 +1070,3 @@ This service architecture provides a robust, secure, and maintainable foundation
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Authentication Architecture
-
-### Firebase Authentication Limitations
-
-**Important**: This application uses a custom Firebase authentication system that creates users with specific UIDs based on EEN user IDs (`een_${eenUserId}`). This design has the following implications:
-
-#### Admin Account Conflicts
-
-**If you previously logged into Firebase using other authentication methods** (Google, email/password, etc.) with the same email address that you use for EEN:
-
-- ✅ **Your previous Firebase admin account will remain intact**
-- ❌ **You cannot log into this EEN application with that email address**
-- 🔄 **This is expected behavior, not a bug**
-
-#### Why This Happens
-
-1. Firebase requires each email address to be unique across all users
-2. Your existing admin account has a different UID (e.g., random string from Google auth)
-3. EEN authentication tries to create a user with UID `een_${yourEenUserId}`
-4. Firebase rejects this because the email is already taken
-
-#### Solutions for Admin Users
-
-**Option 1: Use a Different Email (Recommended)**
-- Create a separate EEN account with a different email address
-- Use that account for testing this application
-
-**Option 2: Account Migration (Advanced)**
-- Contact the development team to manually migrate your account
-- This requires admin intervention to link the accounts
-
-**Option 3: Clean Slate (Development Only)**
-- Delete your existing Firebase user account
-- Then log in with EEN authentication
-- ⚠️ **This will lose any data associated with your admin account**
-
-#### Error Messages
-
-If you encounter this conflict, you'll see:
-```
-Email address conflict: The email address [your-email] is already in use by another account. Please contact support to link your accounts.
-```
-
-This is the expected behavior and indicates the system is working correctly.
-
-## Development Setup

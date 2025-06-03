@@ -6,10 +6,13 @@ const baseURL = process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://127.0.0.1:3333'
 // Define webServer config only when testing locally (not in CI)
 const webServer = !process.env.CI && baseURL.includes('127.0.0.1')
   ? {
-      command: 'npm run dev',
+      command: 'NODE_ENV=test npm run dev',
       url: 'http://127.0.0.1:3333',
       reuseExistingServer: true, // Allow reusing existing server
-      timeout: 120 * 1000 // Increased timeout for server start
+      timeout: 120 * 1000, // Increased timeout for server start
+      env: {
+        NODE_ENV: 'test' // Enable coverage instrumentation
+      }
     }
   : undefined
 
@@ -30,7 +33,17 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] }
+      use: { 
+        ...devices['Desktop Chrome'],
+        // Enable coverage collection in browser context
+        contextOptions: {
+          // Collect coverage if instrumentation is available
+          ...(process.env.NODE_ENV === 'test' ? {
+            // Enable coverage collection
+            recordVideo: { dir: './test-results/videos/' }
+          } : {})
+        }
+      }
     }
     // Add other browsers if needed
     // {

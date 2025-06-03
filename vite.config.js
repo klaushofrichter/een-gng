@@ -8,6 +8,7 @@ import { randomBytes } from 'node:crypto' // For session ID generation
 import { Buffer } from 'buffer'
 import { viteStaticCopy } from 'vite-plugin-static-copy'
 import pkg from './package.json'
+import istanbul from 'vite-plugin-istanbul'
 
 // Define the proxy plugin
 const localOauthProxy = env => {
@@ -299,6 +300,10 @@ const localOauthProxy = env => {
 export default defineConfig(({ command, mode }) => {
   // Load .env variables for the current mode (can reuse earlyEnv if sufficient)
   const env = loadEnv(mode, process.cwd(), '')
+  
+  // Check if we're in test mode
+  const isTestMode = mode === 'test' || process.env.NODE_ENV === 'test'
+  console.log(`[Vite Config] Mode: ${mode}, NODE_ENV: ${process.env.NODE_ENV}, isTestMode: ${isTestMode}`)
 
   const config = {
     plugins: [
@@ -314,9 +319,28 @@ export default defineConfig(({ command, mode }) => {
           {
             src: 'repository-management.pdf',
             dest: '.'
+          },
+          {
+            src: 'node_modules/@firebase/app-check-compat/dist/esm/index.esm.js',
+            dest: 'assets/firebase'
+          },
+          {
+            src: 'node_modules/@firebase/app-check/dist/esm/index.esm.js',
+            dest: 'assets/firebase'
           }
         ]
-      })
+      }),
+      // Add Istanbul for code coverage (only in test environment)
+      ...(isTestMode ? [
+        istanbul({
+          include: 'src/**/*',
+          exclude: ['node_modules', 'tests', 'dist'],
+          extension: ['.js', '.vue'],
+          requireEnv: false,
+          cypress: false,
+          forceBuildInstrument: true
+        })
+      ] : [])
     ],
     resolve: {
       alias: {
@@ -343,6 +367,7 @@ export default defineConfig(({ command, mode }) => {
     define: {
       // Define globals if needed, e.g., from package.json (APP_NAME, etc.)
       // Ensure constants are defined if used elsewhere in config/plugins
+      __COVERAGE__: isTestMode
     }
     // Remove the template section if it's not actually used
     // template: { ... }
