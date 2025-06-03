@@ -8,7 +8,7 @@ permissions:
 
 on:
   workflow_run:
-    workflows: ["Test Branch with Playwright against Vite Server"]
+    workflows: ["Test GH Pages with Playwright"]
     types:
       - completed
     branches:
