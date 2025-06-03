@@ -11,8 +11,8 @@ on:
     workflows: ["Test GH Pages with Playwright"]
     types:
       - completed
-    branches:
-      - production
+#    branches:
+#      - production
 #  pull_request:
 #    branches:
 #      - production

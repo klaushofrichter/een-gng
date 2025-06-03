@@ -215,40 +215,40 @@ jobs:
           # Create a coverage summary for the release
           if [ -f "coverage-reports/coverage-summary.json" ]; then
             echo "Creating coverage summary for release..."
-            node << 'EOF'
-            const fs = require('fs');
-            const summary = JSON.parse(fs.readFileSync('coverage-reports/coverage-summary.json', 'utf8'));
-            
-            const coverageReport = `# Test Coverage Report
-            
-            **Coverage Date**: ${{ steps.download-coverage.outputs.coverage_date }}
-            **Workflow Run**: https://github.com/${{ github.repository }}/actions/runs/${{ steps.workflow-chain.outputs.coverage_run_id }}
-            
-            ## Coverage Metrics
-            
-            | Metric | Coverage | Threshold | Status |
-            |--------|----------|-----------|--------|
-            | Statements | ${summary.total.statements.pct}% | 25% | ${summary.total.statements.pct >= 25 ? '✅' : '❌'} |
-            | Branches | ${summary.total.branches.pct}% | 10% | ${summary.total.branches.pct >= 10 ? '✅' : '❌'} |
-            | Functions | ${summary.total.functions.pct}% | 20% | ${summary.total.functions.pct >= 20 ? '✅' : '❌'} |
-            | Lines | ${summary.total.lines.pct}% | 25% | ${summary.total.lines.pct >= 25 ? '✅' : '❌'} |
-            
-            ## Coverage Details
-            
-            - **Total Statements**: ${summary.total.statements.covered}/${summary.total.statements.total} (${summary.total.statements.pct}%)
-            - **Total Branches**: ${summary.total.branches.covered}/${summary.total.branches.total} (${summary.total.branches.pct}%)
-            - **Total Functions**: ${summary.total.functions.covered}/${summary.total.functions.total} (${summary.total.functions.pct}%)
-            - **Total Lines**: ${summary.total.lines.covered}/${summary.total.lines.total} (${summary.total.lines.pct}%)
-            
-            ## Quality Assessment
-            
-            ${(summary.total.statements.pct >= 25 && summary.total.branches.pct >= 10 && summary.total.functions.pct >= 20 && summary.total.lines.pct >= 25) ? 
-              '🎉 **All coverage thresholds met!** This release maintains good test coverage.' : 
-              '⚠️ **Some coverage thresholds not met.** Consider reviewing test coverage before deployment.'}
-            `;
-            
-            fs.writeFileSync('COVERAGE-REPORT.md', coverageReport);
-            EOF
+            node -e "
+              const fs = require('fs');
+              const summary = JSON.parse(fs.readFileSync('coverage-reports/coverage-summary.json', 'utf8'));
+              
+              const coverageReport = \`# Test Coverage Report
+              
+              **Coverage Date**: ${{ steps.download-coverage.outputs.coverage_date }}
+              **Workflow Run**: https://github.com/${{ github.repository }}/actions/runs/${{ steps.workflow-chain.outputs.coverage_run_id }}
+              
+              ## Coverage Metrics
+              
+              | Metric | Coverage | Threshold | Status |
+              |--------|----------|-----------|--------|
+              | Statements | \${summary.total.statements.pct}% | 25% | \${summary.total.statements.pct >= 25 ? '✅' : '❌'} |
+              | Branches | \${summary.total.branches.pct}% | 10% | \${summary.total.branches.pct >= 10 ? '✅' : '❌'} |
+              | Functions | \${summary.total.functions.pct}% | 20% | \${summary.total.functions.pct >= 20 ? '✅' : '❌'} |
+              | Lines | \${summary.total.lines.pct}% | 25% | \${summary.total.lines.pct >= 25 ? '✅' : '❌'} |
+              
+              ## Coverage Details
+              
+              - **Total Statements**: \${summary.total.statements.covered}/\${summary.total.statements.total} (\${summary.total.statements.pct}%)
+              - **Total Branches**: \${summary.total.branches.covered}/\${summary.total.branches.total} (\${summary.total.branches.pct}%)
+              - **Total Functions**: \${summary.total.functions.covered}/\${summary.total.functions.total} (\${summary.total.functions.pct}%)
+              - **Total Lines**: \${summary.total.lines.covered}/\${summary.total.lines.total} (\${summary.total.lines.pct}%)
+              
+              ## Quality Assessment
+              
+              \${(summary.total.statements.pct >= 25 && summary.total.branches.pct >= 10 && summary.total.functions.pct >= 20 && summary.total.lines.pct >= 25) ? 
+                '🎉 **All coverage thresholds met!** This release maintains good test coverage.' : 
+                '⚠️ **Some coverage thresholds not met.** Consider reviewing test coverage before deployment.'}
+              \`;
+              
+              fs.writeFileSync('COVERAGE-REPORT.md', coverageReport);
+            "
             
             echo "Coverage summary created"
           fi
@@ -276,42 +276,42 @@ jobs:
           
           # Create a test summary for the release
           echo "Creating test summary for release..."
-          node << 'EOF'
-          const fs = require('fs');
-          
-          const testReport = `# Test Results Report
-          
-          **Test Date**: ${{ steps.download-tests.outputs.test_date }}
-          **Workflow Run**: https://github.com/${{ github.repository }}/actions/runs/${{ steps.workflow-chain.outputs.test_run_id }}
-          **Artifacts Count**: ${{ steps.download-tests.outputs.test_artifacts_count }}
-          
-          ## Test Artifacts Included
-          
-          📋 **Playwright HTML Report**: Interactive test results with detailed logs  
-          🎥 **Test Videos**: Recordings of failed tests for debugging  
-          📸 **Screenshots**: Visual evidence of test failures  
-          🔍 **Trace Files**: Detailed execution traces for failed tests  
-          📊 **Test Results**: JSON data with pass/fail statistics  
-          
-          ## How to Use Test Reports
-          
-          1. **Download** the test reports package from release assets
-          2. **Extract** the zip file to access test artifacts
-          3. **Open** \`index.html\` in the extracted folder to view the interactive report
-          4. **Review** failed tests by clicking on test names in the report
-          5. **Analyze** screenshots and videos for debugging failures
-          
-          ## Test Report Features
-          
-          - 🎯 **Interactive Navigation**: Click through test suites and individual tests
-          - 📱 **Responsive Design**: View reports on desktop or mobile
-          - 🔗 **Deep Linking**: Share direct links to specific test results
-          - 📈 **Execution Timeline**: See how long each test took
-          - 🎬 **Video Playback**: Watch test executions in real-time
-          `;
-          
-          fs.writeFileSync('TEST-REPORT.md', testReport);
-          EOF
+          node -e "
+            const fs = require('fs');
+            
+            const testReport = \`# Test Results Report
+            
+            **Test Date**: ${{ steps.download-tests.outputs.test_date }}
+            **Workflow Run**: https://github.com/${{ github.repository }}/actions/runs/${{ steps.workflow-chain.outputs.test_run_id }}
+            **Artifacts Count**: ${{ steps.download-tests.outputs.test_artifacts_count }}
+            
+            ## Test Artifacts Included
+            
+            📋 **Playwright HTML Report**: Interactive test results with detailed logs  
+            🎥 **Test Videos**: Recordings of failed tests for debugging  
+            📸 **Screenshots**: Visual evidence of test failures  
+            🔍 **Trace Files**: Detailed execution traces for failed tests  
+            📊 **Test Results**: JSON data with pass/fail statistics  
+            
+            ## How to Use Test Reports
+            
+            1. **Download** the test reports package from release assets
+            2. **Extract** the zip file to access test artifacts
+            3. **Open** \\\`index.html\\\` in the extracted folder to view the interactive report
+            4. **Review** failed tests by clicking on test names in the report
+            5. **Analyze** screenshots and videos for debugging failures
+            
+            ## Test Report Features
+            
+            - 🎯 **Interactive Navigation**: Click through test suites and individual tests
+            - 📱 **Responsive Design**: View reports on desktop or mobile
+            - 🔗 **Deep Linking**: Share direct links to specific test results
+            - 📈 **Execution Timeline**: See how long each test took
+            - 🎬 **Video Playback**: Watch test executions in real-time
+            \`;
+            
+            fs.writeFileSync('TEST-REPORT.md', testReport);
+          "
           
           echo "Test summary created"
 
