@@ -3,8 +3,12 @@ import { defineConfig, devices } from '@playwright/test'
 // Read base URL from environment variable, default to local dev server
 const baseURL = process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://127.0.0.1:3333'
 
+// Determine if we're testing locally vs production deployment
+const isLocalTesting = baseURL.includes('127.0.0.1')
+const isProductionTesting = baseURL.includes('github.io')
+
 // Define webServer config only when testing locally (not in CI)
-const webServer = !process.env.CI && baseURL.includes('127.0.0.1')
+const webServer = !process.env.CI && isLocalTesting
   ? {
       command: 'NODE_ENV=test npm run dev',
       url: 'http://127.0.0.1:3333',
@@ -16,8 +20,23 @@ const webServer = !process.env.CI && baseURL.includes('127.0.0.1')
     }
   : undefined
 
+// Define test patterns based on environment
+const getTestIgnorePatterns = () => {
+  const patterns = []
+  
+  // Skip coverage tests when testing production deployments
+  if (isProductionTesting) {
+    patterns.push('**/coverage-*.spec.js')
+    console.log('🏭 Production testing mode - skipping coverage tests')
+  }
+  
+  return patterns
+}
+
 export default defineConfig({
   testDir: './tests',
+  // Conditionally ignore coverage tests for production testing
+  testIgnore: getTestIgnorePatterns(),
   fullyParallel: false, // Keep false due to shared auth state potentially
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
