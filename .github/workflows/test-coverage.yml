@@ -1,5 +1,11 @@
 name: Test Coverage Evaluation
 
+# Add permissions for the workflow to comment on PRs
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 on:
   workflow_run:
     workflows: ["Test Branch with Playwright against Vite Server"]
