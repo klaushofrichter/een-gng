@@ -62,11 +62,15 @@ jobs:
 
       - name: Prepare commit message
         id: commit-message
+        env:
+          COMMIT_MESSAGE: ${{ github.event.workflow_run.head_commit.message }}
         run: |
-          message="${{ github.event.workflow_run.head_commit.message }}"
-          # Replace newlines with spaces and escape quotes
-          message="${message//$'\n'/ }"
-          message="${message//\"/\\\"}"
+          # Use environment variable to avoid shell parsing issues
+          # Replace newlines with spaces and properly escape for JSON
+          message=$(echo "$COMMIT_MESSAGE" | tr '\n' ' ' | sed 's/"/\\"/g' | sed "s/'/\\'/g")
+          
+          echo "Original message: $COMMIT_MESSAGE"
+          echo "Processed message: $message"
           echo "MESSAGE=$message" >> $GITHUB_OUTPUT
 
       - name: Calculate duration
