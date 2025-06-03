@@ -12,12 +12,11 @@ on:
     types:
       - completed
     branches:
-      - '**'  # Run on all branches when the test workflow completes
-  pull_request:
-    branches:
       - production
-      - develop
-    types: [opened, synchronize, reopened]
+#  pull_request:
+#    branches:
+#      - production
+#    types: [opened, synchronize, reopened]
   workflow_dispatch:
 
 jobs:
