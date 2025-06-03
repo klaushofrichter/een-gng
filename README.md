@@ -150,6 +150,46 @@ npm run coverage:clean
 npm run coverage:open
 ```
 
+### 🤖 Automated Coverage Evaluation
+
+The project includes a **GitHub Actions workflow** that automatically evaluates test coverage for pull requests:
+
+#### **When It Runs**
+- ✅ **Automatically** after successful test workflow completion
+- ✅ **On Pull Requests** against `production` or `develop` branches  
+- ✅ **Manual Trigger** from GitHub Actions tab
+
+#### **What It Does**
+- 🧪 Runs full test suite with coverage instrumentation
+- 📊 Generates comprehensive coverage reports
+- 💬 **Posts detailed PR comment** with coverage results and recommendations
+- 📁 Uploads coverage artifacts (HTML reports, raw data, LCOV)
+- ✅/❌ **Passes or fails** based on coverage thresholds
+
+#### **PR Coverage Comments**
+The workflow automatically comments on PRs with:
+- **Coverage summary table** showing all metrics vs thresholds
+- **Pass/Fail status** for each coverage type (statements, branches, functions, lines)
+- **Specific recommendations** for improving coverage
+- **Links to detailed reports** uploaded as workflow artifacts
+
+#### **Example PR Comment**
+```markdown
+## 📊 Test Coverage Report
+**Overall Status**: ✅ PASS
+
+| Metric | Coverage | Threshold | Status |
+|--------|----------|-----------|--------|
+| Statements | 30.06% | 25% | ✅ |
+| Branches | 12.93% | 10% | ✅ |
+| Functions | 26.9% | 20% | ✅ |
+| Lines | 30.27% | 25% | ✅ |
+
+🎉 All coverage thresholds met! Your code changes maintain good test coverage.
+```
+
+For detailed information about the GitHub coverage workflow, see [`docs/github-coverage-workflow.md`](docs/github-coverage-workflow.md).
+
 ### 📈 File-Level Coverage Analysis
 
 #### 🟢 **Excellent Coverage (>90%)**
