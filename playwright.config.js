@@ -3,9 +3,21 @@ import { defineConfig, devices } from '@playwright/test'
 // Read base URL from environment variable, default to local dev server
 const baseURL = process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://127.0.0.1:3333'
 
-// Determine if we're testing locally vs production deployment
-const isLocalTesting = baseURL.includes('127.0.0.1')
-const isProductionTesting = baseURL.includes('github.io')
+// Determine if we're testing locally vs production deployment using proper URL parsing
+let isLocalTesting = false
+let isProductionTesting = false
+
+try {
+  const url = new URL(baseURL)
+  // Properly validate hostname instead of using substring search
+  isLocalTesting = url.hostname === '127.0.0.1' || url.hostname === 'localhost'
+  isProductionTesting = url.hostname.endsWith('.github.io') && url.hostname.includes('.')
+} catch (error) {
+  console.warn('Invalid base URL provided:', baseURL)
+  // Default to local testing if URL parsing fails
+  isLocalTesting = true
+  isProductionTesting = false
+}
 
 // Define webServer config only when testing locally (not in CI)
 const webServer = !process.env.CI && isLocalTesting
