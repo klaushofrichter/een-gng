@@ -194,6 +194,14 @@ Ensure these GitHub secrets are configured:
 - Check repository permissions for GitHub Actions
 - Review step outputs for PR comment generation
 
+#### 5. **Firebase File Copy Errors**
+**Symptoms**: Build fails with `vite-plugin-static-copy` errors like "No file was found to copy on node_modules/@firebase/app-check-compat/dist/esm/index.esm.js"
+**Solutions**:
+- Check actual Firebase file names in `node_modules/@firebase/*/dist/esm/`
+- Files may be named `index.esm2017.js` instead of `index.esm.js`
+- Update `vite.config.js` static copy targets to match actual file names
+- Verify files exist after `npm ci` in CI environment
+
 ### Debug Commands
 
 ```bash

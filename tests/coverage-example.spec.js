@@ -5,6 +5,7 @@ import { collectCoverage } from './coverage-helper.js'
 /**
  * Example test demonstrating coverage collection
  * This test can be used as a template for other tests that need coverage
+ * Coverage collection is gracefully skipped when not available (e.g., in production)
  */
 
 test.describe('Coverage Collection Example', () => {
@@ -32,7 +33,7 @@ test.describe('Coverage Collection Example', () => {
     await page.getByRole('link', { name: 'Profile' }).click()
     await expect(page.getByRole('heading', { name: 'Profile', level: 3 })).toBeVisible()
     
-    // Collect coverage data before logout
+    // Collect coverage data before logout (gracefully skips if not available)
     await collectCoverage(page, 'basic-navigation')
     
     // Logout
@@ -52,7 +53,7 @@ test.describe('Coverage Collection Example', () => {
       // Add more capture testing here
     }
     
-    // Collect coverage for this specific functionality
+    // Collect coverage for this specific functionality (gracefully skips if not available)
     await collectCoverage(page, 'capture-functionality')
     
     await logoutFromApplication(page, false, true)

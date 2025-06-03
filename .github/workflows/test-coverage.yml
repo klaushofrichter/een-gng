@@ -127,7 +127,7 @@ jobs:
         run: |
           if [ -f "coverage/reports/coverage-summary.json" ]; then
             # Extract coverage percentages using node and perform comparisons
-            node << 'EOF'
+            node -e "
             const fs = require('fs');
             const summary = JSON.parse(fs.readFileSync('coverage/reports/coverage-summary.json', 'utf8'));
             
@@ -137,10 +137,10 @@ jobs:
             const lines = summary.total.lines.pct;
             
             // Set GitHub outputs
-            console.log(`statements=${statements}`);
-            console.log(`branches=${branches}`);
-            console.log(`functions=${functions}`);
-            console.log(`lines=${lines}`);
+            console.log(\`statements=\${statements}\`);
+            console.log(\`branches=\${branches}\`);
+            console.log(\`functions=\${functions}\`);
+            console.log(\`lines=\${lines}\`);
             
             // Determine coverage status based on thresholds
             const statementsPass = statements >= 25 ? '✅' : '❌';
@@ -148,26 +148,26 @@ jobs:
             const functionsPass = functions >= 20 ? '✅' : '❌';
             const linesPass = lines >= 25 ? '✅' : '❌';
             
-            console.log(`statements_pass=${statementsPass}`);
-            console.log(`branches_pass=${branchesPass}`);
-            console.log(`functions_pass=${functionsPass}`);
-            console.log(`lines_pass=${linesPass}`);
+            console.log(\`statements_pass=\${statementsPass}\`);
+            console.log(\`branches_pass=\${branchesPass}\`);
+            console.log(\`functions_pass=\${functionsPass}\`);
+            console.log(\`lines_pass=\${linesPass}\`);
             
             // Overall pass/fail
             const overallPass = (statements >= 25 && branches >= 10 && functions >= 20 && lines >= 25) ? '✅ PASS' : '❌ FAIL';
-            console.log(`overall_pass=${overallPass}`);
+            console.log(\`overall_pass=\${overallPass}\`);
             
             // Write to GitHub outputs
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, `statements=${statements}\n`);
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, `branches=${branches}\n`);
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, `functions=${functions}\n`);
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, `lines=${lines}\n`);
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, `statements_pass=${statementsPass}\n`);
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, `branches_pass=${branchesPass}\n`);
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, `functions_pass=${functionsPass}\n`);
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, `lines_pass=${linesPass}\n`);
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, `overall_pass=${overallPass}\n`);
-            EOF
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, \`statements=\${statements}\\n\`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, \`branches=\${branches}\\n\`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, \`functions=\${functions}\\n\`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, \`lines=\${lines}\\n\`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, \`statements_pass=\${statementsPass}\\n\`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, \`branches_pass=\${branchesPass}\\n\`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, \`functions_pass=\${functionsPass}\\n\`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, \`lines_pass=\${linesPass}\\n\`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, \`overall_pass=\${overallPass}\\n\`);
+            "
           else
             echo "Coverage summary file not found"
             exit 1
@@ -253,7 +253,7 @@ jobs:
           echo "Checking if coverage meets minimum thresholds..."
           # Use the coverage summary to determine if thresholds are met
           if [ -f "coverage/reports/coverage-summary.json" ]; then
-            node << 'EOF'
+            node -e "
             const fs = require('fs');
             const summary = JSON.parse(fs.readFileSync('coverage/reports/coverage-summary.json', 'utf8'));
             
@@ -262,11 +262,11 @@ jobs:
             const functions = summary.total.functions.pct;
             const lines = summary.total.lines.pct;
             
-            console.log(`Coverage Results:`);
-            console.log(`- Statements: ${statements}% (threshold: 25%)`);
-            console.log(`- Branches: ${branches}% (threshold: 10%)`);
-            console.log(`- Functions: ${functions}% (threshold: 20%)`);
-            console.log(`- Lines: ${lines}% (threshold: 25%)`);
+            console.log(\`Coverage Results:\`);
+            console.log(\`- Statements: \${statements}% (threshold: 25%)\`);
+            console.log(\`- Branches: \${branches}% (threshold: 10%)\`);
+            console.log(\`- Functions: \${functions}% (threshold: 20%)\`);
+            console.log(\`- Lines: \${lines}% (threshold: 25%)\`);
             
             if (statements >= 25 && branches >= 10 && functions >= 20 && lines >= 25) {
               console.log('✅ All coverage thresholds met!');
@@ -276,7 +276,7 @@ jobs:
               console.log('See the coverage report for details on which files need more test coverage');
               process.exit(1);
             }
-            EOF
+            "
           else
             echo "❌ Coverage summary not found"
             exit 1
