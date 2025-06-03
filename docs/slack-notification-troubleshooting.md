@@ -139,4 +139,45 @@ Test completed at: Mon Jun  3 14:38:45 CDT 2025
 - **Escaping Strategy**: Uses `sed` to escape quotes for JSON compatibility
 - **Timezone**: Converts UTC timestamps to Central Time (America/Chicago)
 - **Error Handling**: Graceful fallbacks for missing data (e.g., "unknown" duration)
-- **Security**: Uses environment variables to prevent injection attacks 
+- **Security**: Uses environment variables to prevent injection attacks
+
+## Related Issues in Other Workflows
+
+### Heredoc Syntax Problems
+
+**Issue**: Other workflows (like `package.yml`) may experience similar shell parsing errors with heredoc syntax.
+
+**Symptoms**:
+```
+/home/runner/work/_temp/xxx.sh: line XX: warning: here-document at line X delimited by end-of-file (wanted `EOF')
+/home/runner/work/_temp/xxx.sh: line XX: syntax error: unexpected end of file
+Error: Process completed with exit code 2.
+```
+
+**Root Cause**: GitHub Actions YAML parsing conflicts with bash heredoc syntax `<< 'EOF'`.
+
+**Solution**: Replace heredoc blocks with `node -e` approach:
+
+```yaml
+# ❌ Problematic heredoc syntax
+node << 'EOF'
+const fs = require('fs');
+const data = "some string with ${variables}";
+fs.writeFileSync('output.txt', data);
+EOF
+
+# ✅ Fixed with node -e
+node -e "
+  const fs = require('fs');
+  const data = \`some string with \${variables}\`;
+  fs.writeFileSync('output.txt', data);
+"
+```
+
+**Key Changes**:
+- Replace `<< 'EOF'` with `-e "`
+- Replace closing `EOF` with `"`
+- Escape backticks: `` ` `` becomes `` \` ``
+- Escape template literals: `${var}` becomes `\${var}`
+
+This pattern applies to any workflow using inline Node.js scripts in shell steps. 
