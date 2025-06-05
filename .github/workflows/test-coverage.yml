@@ -45,8 +45,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          ref: production
           # For workflow_run events, checkout the source branch
-          ref: ${{ github.event.workflow_run.head_branch || github.head_ref || github.ref }}
+          # ref: ${{ github.event.workflow_run.head_branch || github.head_ref || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
