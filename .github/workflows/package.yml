@@ -5,8 +5,6 @@ on:
     workflows: ["Test Coverage Evaluation"]
     types:
       - completed
-    branches:
-      - production
   workflow_dispatch:
 
 # Add comprehensive permissions needed for accessing artifacts and creating releases
