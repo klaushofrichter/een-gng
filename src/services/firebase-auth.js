@@ -19,9 +19,22 @@ class FirebaseAuthService {
    * @param {Object} firebaseApp - The Firebase app instance
    */
   initialize(firebaseApp) {
-    //console.log('[FirebaseAuth] Initializing Firebase Auth and Functions')
-    this.auth = getAuth(firebaseApp)
-    this.functions = getFunctions(firebaseApp)
+    console.log('[FirebaseAuth] Initializing Firebase Auth and Functions')
+    
+    if (!firebaseApp) {
+      throw new Error('Firebase app instance is required for initialization')
+    }
+    
+    try {
+      this.auth = getAuth(firebaseApp)
+      console.log('[FirebaseAuth] Firebase Auth initialized successfully')
+      
+      this.functions = getFunctions(firebaseApp)
+      console.log('[FirebaseAuth] Firebase Functions initialized successfully')
+    } catch (error) {
+      console.error('[FirebaseAuth] Error during initialization:', error)
+      throw new Error(`Firebase initialization failed: ${error.message}`)
+    }
     
     // Listen for auth state changes
     this.auth.onAuthStateChanged((user) => {
@@ -91,6 +104,16 @@ class FirebaseAuthService {
   }
 
   /**
+   * Check if Firebase services are properly initialized
+   * @returns {boolean} True if initialized
+   */
+  isInitialized() {
+    const initialized = !!(this.auth && this.functions)
+    console.log('[FirebaseAuth] Checking if Firebase services are initialized:', initialized)
+    return initialized
+  }
+
+  /**
    * Get a custom Firebase token from the server using EEN credentials
    * @returns {Promise<string>} Custom Firebase token
    */
@@ -133,6 +156,18 @@ class FirebaseAuthService {
     }
 
     try {
+      // Validate Firebase functions are initialized
+      if (!this.functions) {
+        throw new Error('Firebase Functions not initialized. Please refresh the page and try again.')
+      }
+      
+      console.log('[FirebaseAuth] Calling Firebase function with data:', {
+        eenUserId: String(eenUserId),
+        eenUserEmail,
+        eenBaseUrl: eenAuthStore.baseUrl,
+        hasAccessToken: !!eenAccessToken
+      })
+      
       // Call the Firebase function to create a custom token
       const createCustomToken = httpsCallable(this.functions, 'createCustomToken')
       const result = await createCustomToken({
@@ -151,6 +186,11 @@ class FirebaseAuthService {
       })
 
       console.log('[FirebaseAuth] Custom token created successfully')
+      
+      if (!result || !result.data || !result.data.customToken) {
+        throw new Error('Invalid response from Firebase function - missing custom token')
+      }
+      
       return result.data.customToken
     } catch (error) {
       console.error('[FirebaseAuth] Error getting custom token:', error)
@@ -264,12 +304,24 @@ class FirebaseAuthService {
       return false
     }
 
+    // Check if Firebase services are initialized
+    if (!this.isInitialized()) {
+      console.error('[FirebaseAuth] Firebase services not initialized, cannot refresh auth')
+      return false
+    }
+
     try {
       await this.signInWithEEN()
       console.log('[FirebaseAuth] Refreshed Firebase auth')
       return true
     } catch (error) {
       console.error('[FirebaseAuth] Error refreshing Firebase auth:', error)
+      
+      // If it's a Firebase initialization error, suggest page refresh
+      if (error.message.includes('not initialized')) {
+        console.error('[FirebaseAuth] Firebase initialization issue detected. User should refresh the page.')
+      }
+      
       return false
     }
   }

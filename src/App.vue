@@ -298,7 +298,11 @@ onUnmounted(() => {
 
 // Add a function to clear persistent auth data
 function clearPersistentAuthData() {
+  // Remove old localStorage keys
   localStorage.removeItem('eenBaseUrl');
+  // Remove new localStorage keys
+  localStorage.removeItem('eenHostname');
+  localStorage.removeItem('eenPort');
   localStorage.removeItem('eenToken');
   localStorage.removeItem('eenUserProfile');
 }

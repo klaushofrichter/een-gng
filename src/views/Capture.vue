@@ -697,10 +697,35 @@ const signInAndFetchData = async () => {
     
     // Check if we need to refresh the EEN token
     const timeRemaining = eenAuthStore.getTokenTimeRemaining();
+    console.log("[Capture.vue] EEN token time remaining:", timeRemaining);
+    
     if (timeRemaining && timeRemaining < 300000) { // 5 minutes
       console.log("[Capture.vue] EEN token expiring soon, refreshing...");
       const { refreshToken } = await import('../services/auth');
       await refreshToken();
+    } else if (!timeRemaining || timeRemaining <= 0) {
+      console.error("[Capture.vue] EEN token has expired");
+      throw new Error("EEN token has expired. Please log in again.");
+    }
+    
+    // Validate that we have all required data before Firebase auth
+    if (!eenAuthStore.baseUrl) {
+      throw new Error("EEN base URL not available. Please log in again.");
+    }
+    
+    if (!eenAuthStore.token) {
+      throw new Error("EEN access token not available. Please log in again.");
+    }
+    
+    if (!eenAuthStore.userProfile?.email) {
+      throw new Error("EEN user profile not available. Please log in again.");
+    }
+    
+    console.log("[Capture.vue] All EEN credentials validated, proceeding with Firebase auth");
+    
+    // Check if Firebase is properly initialized
+    if (!firebaseAuthService.isInitialized()) {
+      throw new Error("Firebase services not properly initialized. Please refresh the page and try again.");
     }
     
     // Sign in to Firebase using EEN custom token
@@ -1309,20 +1334,28 @@ async function confirmReprocess() {
 onMounted(() => {
   document.title = `${APP_NAME} - Capture`;
   
+  // Clean up any old localStorage keys that might cause issues
+  const oldBaseUrl = localStorage.getItem('eenBaseUrl');
+  if (oldBaseUrl) {
+    console.log('[Capture.vue] Removing old eenBaseUrl from localStorage');
+    localStorage.removeItem('eenBaseUrl');
+  }
+  
   // Initialize auth store from localStorage if needed
-  const storedBaseUrl = localStorage.getItem('eenBaseUrl');
+  const storedHostname = localStorage.getItem('eenHostname');
+  const storedPort = localStorage.getItem('eenPort');
   const storedToken = localStorage.getItem('eenToken');
   const storedUserProfile = localStorage.getItem('eenUserProfile');
 
-  if (storedBaseUrl && !eenAuthStore.baseUrl) {
+  if (storedHostname && !eenAuthStore.baseUrl) {
     try {
-      const url = new URL(storedBaseUrl);
       eenAuthStore.setBaseUrl({
-        hostname: url.hostname,
-        port: url.port ? parseInt(url.port) : (url.protocol === 'https:' ? 443 : 80)
+        hostname: storedHostname,
+        port: storedPort ? parseInt(storedPort) : null
       });
+      console.log('[Capture.vue] Restored baseUrl from localStorage:', eenAuthStore.baseUrl);
     } catch (err) {
-      console.error('[Capture.vue] Failed to parse stored baseUrl:', err);
+      console.error('[Capture.vue] Failed to set stored baseUrl:', err);
     }
   }
   if (storedToken && !eenAuthStore.token) {
@@ -1336,13 +1369,13 @@ onMounted(() => {
     }
   }
   
-  console.log('[Capture.vue] Component mounted - EEN Auth State:', {
-    isAuthenticated: eenAuthStore.isAuthenticated,
-    hasToken: !!eenAuthStore.token,
-    hasUserProfile: !!eenAuthStore.userProfile,
-    userProfile: eenAuthStore.userProfile,
-    baseUrl: eenAuthStore.baseUrl
-  });
+  //  console.log('[Capture.vue] Component mounted - EEN Auth State:', {
+  //  isAuthenticated: eenAuthStore.isAuthenticated,
+  //  hasToken: !!eenAuthStore.token,
+  //  hasUserProfile: !!eenAuthStore.userProfile,
+  //  userProfile: eenAuthStore.userProfile,
+  //  baseUrl: eenAuthStore.baseUrl
+  //});
   
   if (eenAuthStore.isAuthenticated) {
     signInAndFetchData();
@@ -1391,20 +1424,20 @@ onUnmounted(async () => {
 // Rehydrate auth store and re-check authentication on window focus
 window.addEventListener('focus', async () => {
   // Try to rehydrate from localStorage/sessionStorage if needed
-  const storedBaseUrl = localStorage.getItem('eenBaseUrl');
+  const storedHostname = localStorage.getItem('eenHostname');
+  const storedPort = localStorage.getItem('eenPort');
   const storedToken = localStorage.getItem('eenToken');
   const storedUserProfile = localStorage.getItem('eenUserProfile');
 
-  if (storedBaseUrl && !eenAuthStore.baseUrl) {
-    // Parse the baseUrl to extract hostname and port for the auth store
+  if (storedHostname && !eenAuthStore.baseUrl) {
+    // Set the baseUrl using stored hostname and port
     try {
-      const url = new URL(storedBaseUrl);
       eenAuthStore.setBaseUrl({
-        hostname: url.hostname,
-        port: url.port ? parseInt(url.port) : (url.protocol === 'https:' ? 443 : 80)
+        hostname: storedHostname,
+        port: storedPort ? parseInt(storedPort) : null
       });
     } catch (err) {
-      console.error('[Capture.vue] Failed to parse stored baseUrl:', err);
+      console.error('[Capture.vue] Failed to set stored baseUrl:', err);
     }
   }
   if (storedToken && !eenAuthStore.token) {
@@ -1429,9 +1462,14 @@ window.addEventListener('focus', async () => {
 });
 
 // Persist auth state to localStorage when it changes
-watch(() => eenAuthStore.baseUrl, (val) => {
-  if (val) localStorage.setItem('eenBaseUrl', val);
-  else localStorage.removeItem('eenBaseUrl');
+// Store hostname and port separately instead of the computed baseUrl
+watch(() => eenAuthStore.hostname, (val) => {
+  if (val) localStorage.setItem('eenHostname', val);
+  else localStorage.removeItem('eenHostname');
+});
+watch(() => eenAuthStore.port, (val) => {
+  if (val) localStorage.setItem('eenPort', val.toString());
+  else localStorage.removeItem('eenPort');
 });
 watch(() => eenAuthStore.token, (val) => {
   if (val) localStorage.setItem('eenToken', val);
