@@ -73,6 +73,9 @@ jobs:
           echo "Started Vite server with coverage instrumentation (PID: $SERVER_PID)"
           echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
           
+          # show the branch that the server is running on
+          echo "Server is running on branch: ${{ github.event.workflow_run.head_branch || github.head_ref || github.ref }}"
+          
           # Wait for server to be ready
           echo "Waiting for server to start..."
           timeout=60
