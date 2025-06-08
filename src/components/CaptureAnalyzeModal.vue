@@ -123,6 +123,25 @@
             </div>
           </div>
 
+          <!-- Download Success Message -->
+          <div v-if="downloadSuccess" class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+            <div class="flex">
+              <div class="flex-shrink-0">
+                <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                </svg>
+              </div>
+              <div class="ml-3">
+                <h5 class="text-sm font-medium text-green-800 dark:text-green-400">
+                  Download Successful
+                </h5>
+                <p class="text-sm text-green-700 dark:text-green-300 mt-1">
+                  Analysis data has been downloaded successfully
+                </p>
+              </div>
+            </div>
+          </div>
+
           <!-- Error Message -->
           <div v-if="analysisError" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
             <div class="flex">
@@ -328,6 +347,20 @@
             </span>
           </button>
           
+          <!-- Download Button -->
+          <button 
+            v-if="hasAnalyzedImages && analysisResults"
+            type="button"
+            class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            :disabled="isAnalyzing || isResetting"
+            @click="downloadAnalysisData"
+          >
+            <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            Download
+          </button>
+          
           <!-- Analyze Button -->
           <button 
             v-if="hasApiKey && capture && capture.imageCount > 0"
@@ -503,6 +536,7 @@ const imagesWithAnalysis = ref(null)
 const currentPage = ref(1)
 const showDetailedAnalysis = ref(false)
 const selectedImage = ref(null)
+const downloadSuccess = ref(false)
 
 // Utility function to format description with proper bullet points
 const formatDescription = (description) => {
@@ -518,7 +552,7 @@ const formatDescription = (description) => {
 
 // Computed properties
 const hasApiKey = computed(() => {
-  return !!(import.meta.env.VITE_GEMINI_API_KEY_LOCAL || import.meta.env.VITE_GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY_LOCAL)
+  return !!(import.meta.env.VITE_GEMINI_API_KEY_LOCAL || import.meta.env.VITE_GEMINI_API_KEY)
 })
 
 
@@ -622,6 +656,7 @@ const startAnalysis = async () => {
     analysisResults.value = null
     analysisStatus.value = true
     analysisProgress.value = { current: 0, total: 0, percentage: 0 }
+    downloadSuccess.value = false
 
     console.log('[CaptureAnalyzeModal] Starting analysis for capture:', props.capture.id)
 
@@ -660,6 +695,7 @@ const resetAnalysis = async () => {
   try {
     isResetting.value = true
     analysisError.value = null
+    downloadSuccess.value = false
     
     console.log('[CaptureAnalyzeModal] Resetting analysis for capture:', props.capture.id)
 
@@ -692,6 +728,128 @@ const loadImagesWithAnalysis = async () => {
     imagesWithAnalysis.value = data
   } catch (error) {
     console.error('[CaptureAnalyzeModal] Failed to load images:', error)
+  }
+}
+
+const downloadAnalysisData = () => {
+  if (!props.capture || !imagesWithAnalysis.value || !analysisResults.value) {
+    console.error('[CaptureAnalyzeModal] Missing data for download')
+    return
+  }
+
+  try {
+    console.log('[CaptureAnalyzeModal] Generating analysis data for download')
+
+    // Create comprehensive analysis data object
+    const analysisData = {
+      // Capture metadata
+      capture: {
+        id: props.capture.id,
+        name: props.capture.name || 'Unnamed Capture',
+        description: props.capture.description || '',
+        cameraId: props.capture.cameraId,
+        createdAt: props.capture.createdAt,
+        processedAt: props.capture.processedAt,
+        startDate: props.capture.startDate,
+        duration: props.capture.duration,
+        interval: props.capture.interval,
+        imageCount: props.capture.imageCount || 0,
+        eenUserEmailField: props.capture.eenUserEmailField
+      },
+      
+      // Analysis summary
+      analysisSummary: {
+        ...analysisResults.value,
+        analysisCompletedAt: new Date().toISOString(),
+        totalImagesInCapture: imagesWithAnalysis.value.totalImages,
+        imagesAnalyzed: imagesWithAnalysis.value.analyzedImages.length,
+        imagesNotAnalyzed: imagesWithAnalysis.value.unanalyzedImages.length,
+        analysisProgress: Math.round(imagesWithAnalysis.value.analysisProgress)
+      },
+      
+      // Detailed image analysis results
+      imageAnalysis: imagesWithAnalysis.value.analyzedImages.map(image => ({
+        // Image metadata
+        imageId: image.id,
+        imageIndex: image.index,
+        timestamp: image.timestamp,
+        uploadedAt: image.uploadedAt,
+        downloadUrl: image.downloadUrl,
+        storagePath: image.storagePath,
+        size: image.size,
+        
+        // Gemini analysis results
+        geminiAnalysis: image.geminiAnalysis ? {
+          success: image.geminiAnalysis.success,
+          description: image.geminiAnalysis.description,
+          peopleCount: image.geminiAnalysis.peopleCount,
+          confidence: image.geminiAnalysis.confidence,
+          analysisTimestamp: image.geminiAnalysis.analysisTimestamp,
+          error: image.geminiAnalysis.error || null
+        } : null
+      })),
+      
+      // Images without analysis (for completeness)
+      unanalyzedImages: imagesWithAnalysis.value.unanalyzedImages.map(image => ({
+        imageId: image.id,
+        imageIndex: image.index,
+        timestamp: image.timestamp,
+        uploadedAt: image.uploadedAt,
+        downloadUrl: image.downloadUrl,
+        storagePath: image.storagePath,
+        size: image.size,
+        status: 'not_analyzed'
+      })),
+      
+      // Export metadata
+      exportMetadata: {
+        exportedAt: new Date().toISOString(),
+        exportedBy: props.capture.eenUserEmailField || 'unknown',
+        version: '1.0',
+        format: 'JSON',
+        description: 'AI Image Analysis Results Export from EEN-GNG Application'
+      }
+    }
+
+    // Create filename with capture name and timestamp
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')
+    const captureName = (props.capture.name || 'capture').replace(/[^a-zA-Z0-9-_]/g, '_')
+    const filename = `analysis_${captureName}_${timestamp}.json`
+
+    // Create and download the file
+    const jsonString = JSON.stringify(analysisData, null, 2)
+    const blob = new Blob([jsonString], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    
+    // Create temporary download link
+    const downloadLink = document.createElement('a')
+    downloadLink.href = url
+    downloadLink.download = filename
+    downloadLink.style.display = 'none'
+    
+    // Trigger download
+    document.body.appendChild(downloadLink)
+    downloadLink.click()
+    document.body.removeChild(downloadLink)
+    
+    // Clean up object URL
+    URL.revokeObjectURL(url)
+    
+    console.log(`[CaptureAnalyzeModal] Analysis data downloaded as: ${filename}`)
+    console.log(`[CaptureAnalyzeModal] Export included ${analysisData.imageAnalysis.length} analyzed images`)
+    
+    // Show success message
+    downloadSuccess.value = true
+    
+    // Auto-hide success message after 3 seconds
+    setTimeout(() => {
+      downloadSuccess.value = false
+    }, 3000)
+    
+  } catch (error) {
+    console.error('[CaptureAnalyzeModal] Error downloading analysis data:', error)
+    // Show error in the existing error display
+    analysisError.value = `Download failed: ${error.message}`
   }
 }
 
