@@ -106,55 +106,58 @@ test.describe('Capture Page Registration Flow', () => {
 
     // Clean up any existing test captures first
     console.log('🧹 Cleaning up any existing test captures...')
+    
+    // Use a more specific test name with timestamp to avoid conflicts
+    const testCaptureName = `test-capture-${Date.now()}`
+    console.log(`🔍 Using unique test capture name: ${testCaptureName}`)
+    
+    // Still clean up any old "test title only" captures from previous runs
     let existingTestCaptures = page.locator('li:has-text("test title only")')
     let existingCount = await existingTestCaptures.count()
     
     if (existingCount > 0) {
-      console.log(`⚠️ Found ${existingCount} existing test capture(s), cleaning up...`)
+      console.log(`⚠️ Found ${existingCount} existing old test capture(s), cleaning up...`)
       
-      let deletionCount = 0
-      let remainingCount = existingCount
-      while (remainingCount > 0 && deletionCount < 10) {
-        // Re-check for remaining test captures after each deletion
-        existingTestCaptures = page.locator('li:has-text("test title only")')
-        remainingCount = await existingTestCaptures.count()
-        
-        if (remainingCount === 0) {
-          console.log('✅ All test captures cleaned up')
+      // Delete all existing test captures at once
+      for (let i = 0; i < existingCount && i < 10; i++) {
+        try {
+          // Always target the first remaining capture
+          const captures = page.locator('li:has-text("test title only")')
+          const remainingCount = await captures.count()
+          if (remainingCount === 0) break
+          
+          const capture = captures.first()
+          const deleteButton = capture.locator('button:has-text("Delete")')
+          await deleteButton.click()
+          
+          // Wait for delete confirmation modal
+          const deleteModal = page.locator('h3:has-text("Delete Capture")')
+          await expect(deleteModal).toBeVisible()
+          
+          // Confirm deletion
+          const confirmDeleteButton = page.locator('button:has-text("Delete")').last()
+          await confirmDeleteButton.click()
+          await expect(deleteModal).toBeHidden()
+          
+          // Wait a moment for the list to update
+          await page.waitForTimeout(1000)
+          console.log(`🗑️ Deleted old test capture ${i + 1}`)
+        } catch (error) {
+          console.log(`⚠️ Error deleting old test capture ${i + 1}:`, error.message)
           break
         }
-        
-        deletionCount++
-        console.log(`🗑️ Deleting test capture ${deletionCount} (${remainingCount} remaining)`)
-        
-        // Always target the first remaining capture
-        const capture = existingTestCaptures.first()
-        const deleteButton = capture.locator('button:has-text("Delete")')
-        await deleteButton.click()
-        
-        // Wait for delete confirmation modal
-        const deleteModal = page.locator('h3:has-text("Delete Capture")')
-        await expect(deleteModal).toBeVisible()
-        
-        // Confirm deletion
-        const confirmDeleteButton = page.locator('button:has-text("Delete")').last()
-        await confirmDeleteButton.click()
-        await expect(deleteModal).toBeHidden()
-        
-        // Wait a moment for the list to update
-        await page.waitForTimeout(1000)
-      }
-      
-      if (deletionCount >= 10) {
-        console.log('⚠️ Too many deletions, breaking to prevent infinite loop')
       }
     }
 
-    // Now check that there are no captures with the title "test title only"
-    console.log('🔍 Verifying no test captures remain')
+    // Now check that there are no captures with the old test title
+    console.log('🔍 Verifying no old test captures remain')
     const remainingTestCaptures = page.locator('li:has-text("test title only")')
-    await expect(remainingTestCaptures).toHaveCount(0)
-    console.log('✅ Confirmed no existing test capture')
+    const finalCount = await remainingTestCaptures.count()
+    if (finalCount > 0) {
+      console.log(`⚠️ Still ${finalCount} old test captures remaining, but continuing with unique name`)
+    } else {
+      console.log('✅ Confirmed no existing old test captures')
+    }
 
     // Find the "Create New Capture" button on the page
     console.log('🔍 Looking for "Create New Capture" button')
@@ -171,9 +174,9 @@ test.describe('Capture Page Registration Flow', () => {
     await expect(createModal).toBeVisible()
     console.log('✅ Create modal opened')
 
-    // Fill in the form
-    await page.fill('input[id="capture-name"]', 'test title only')
-    await page.fill('textarea[id="capture-description"]', 'do not use')
+    // Fill in the form with unique name
+    await page.fill('input[id="capture-name"]', testCaptureName)
+    await page.fill('textarea[id="capture-description"]', 'automated test capture')
     
     // Fill in camera ID
     await page.fill('input[id="camera-id"]', '1005963a')
@@ -250,8 +253,8 @@ test.describe('Capture Page Registration Flow', () => {
     }
     
     // Look for the specific capture we just created - it should now show the full name
-    console.log('🔍 Looking for "test title only" capture...')
-    const newCaptureCard = page.locator('li:has-text("test title only")')
+    console.log(`🔍 Looking for "${testCaptureName}" capture...`)
+    const newCaptureCard = page.locator(`li:has-text("${testCaptureName}")`)
     
     // Wait up to 10 seconds for the new capture to appear
     await expect(newCaptureCard).toBeVisible({ timeout: 10000 })
@@ -259,7 +262,7 @@ test.describe('Capture Page Registration Flow', () => {
 
     // Check the title and description on the capture card
     console.log('🔍 Verifying capture card content')
-    await expect(newCaptureCard.locator('p:has-text("test title only")')).toBeVisible()
+    await expect(newCaptureCard.locator(`p:has-text("${testCaptureName}")`)).toBeVisible()
     console.log('✅ Capture title verified on card')
 
     // Use the delete button on the card
@@ -300,7 +303,7 @@ test.describe('Capture Page Registration Flow', () => {
     console.log('🔍 Verifying detail modal content')
     // The modal title has specific classes: bg-gray-50 dark:bg-gray-700 p-2 rounded
     const modalContainer = page.locator('div:has(h3:has-text("Capture Details"))')
-    const modalTitle = modalContainer.locator('p.bg-gray-50:has-text("test title only")')
+    const modalTitle = modalContainer.locator(`p.bg-gray-50:has-text("${testCaptureName}")`)
     await expect(modalTitle).toBeVisible()
     console.log('✅ Title verified in detail modal')
 
@@ -327,8 +330,8 @@ test.describe('Capture Page Registration Flow', () => {
     await expect(newCaptureCard).not.toBeVisible({ timeout: 10000 })
     console.log('✅ Test capture successfully deleted')
 
-    // Logout and end
-    await logoutFromApplication(page)
+    // Logout and end (use fast logout to avoid timeout)
+    await logoutFromApplication(page, false, true)
     console.log('✅ Capture page registration test completed successfully')
   });
 
@@ -645,9 +648,9 @@ test.describe('Capture Page Registration Flow', () => {
     await expect(firstCaptureCard).toBeHidden()
     console.log('✅ Test capture cleaned up')
 
-    // Logout and end - with improved error handling
+    // Logout and end - with improved error handling (use fast logout)
     try {
-      await logoutFromApplication(page)
+      await logoutFromApplication(page, false, true)
       console.log('✅ Successfully logged out')
     } catch (error) {
       console.log('⚠️ Logout failed:', error.message)
@@ -770,9 +773,9 @@ test.describe('Capture Page Registration Flow', () => {
     await expect(firstCaptureCard).toBeHidden()
     console.log('✅ Test capture cleaned up')
 
-    // Logout and end - with improved error handling
+    // Logout and end - with improved error handling (use fast logout)
     try {
-      await logoutFromApplication(page)
+      await logoutFromApplication(page, false, true)
       console.log('✅ Successfully logged out')
     } catch (error) {
       console.log('⚠️ Logout failed:', error.message)
