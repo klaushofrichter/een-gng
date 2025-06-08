@@ -1,4 +1,4 @@
-import { getFirestore, collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy, limit, startAfter, writeBatch } from "firebase/firestore";
+import { getFirestore, collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy, limit, startAfter, writeBatch, deleteField } from "firebase/firestore";
 import app from '../firebase';
 import securityService from './security';
 
@@ -372,6 +372,216 @@ class DatabaseService {
       console.log(`[DatabaseService] Updated download URL for image ${imageId}`);
     } catch (error) {
       console.error(`[DatabaseService] Error updating image URL for ${imageId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update image with Gemini analysis results
+   * @param {string} imageId - Image document ID
+   * @param {Object} analysisResults - Results from Gemini analysis
+   */
+  async updateImageAnalysis(imageId, analysisResults) {
+    try {
+      const imageRef = doc(this.db, "capture_images", imageId);
+      
+      // Sanitize and structure the analysis data
+      const sanitizedAnalysis = {
+        geminiAnalysis: {
+          success: analysisResults.success || false,
+          description: securityService.sanitizeInput(analysisResults.description || ''),
+          peopleCount: analysisResults.peopleCount,
+          confidence: securityService.sanitizeInput(analysisResults.confidence || 'unknown'),
+          analysisTimestamp: analysisResults.analysisTimestamp || new Date().toISOString(),
+          error: analysisResults.error ? securityService.sanitizeInput(analysisResults.error) : null
+        }
+      };
+
+      await updateDoc(imageRef, sanitizedAnalysis);
+      
+      console.log(`[DatabaseService] Updated Gemini analysis for image ${imageId}`);
+    } catch (error) {
+      console.error(`[DatabaseService] Error updating image analysis for ${imageId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update capture with analysis summary
+   * @param {string} captureId - Capture ID
+   * @param {Object} analysisSummary - Summary of analysis results
+   */
+  async updateCaptureAnalysisSummary(captureId, analysisSummary) {
+    try {
+      const captureRef = doc(this.db, "captures", captureId);
+      
+      const sanitizedSummary = {
+        analysisResults: {
+          totalImages: analysisSummary.totalImages || 0,
+          analyzedImages: analysisSummary.analyzedImages || 0,
+          successfulAnalyses: analysisSummary.successfulAnalyses || 0,
+          totalPeopleDetected: analysisSummary.totalPeopleDetected || 0,
+          averagePeoplePerImage: analysisSummary.averagePeoplePerImage || 0,
+          analysisCompletedAt: new Date().toISOString(),
+          status: securityService.sanitizeInput(analysisSummary.status || 'completed')
+        }
+      };
+
+      await updateDoc(captureRef, sanitizedSummary);
+      
+      console.log(`[DatabaseService] Updated analysis summary for capture ${captureId}`);
+    } catch (error) {
+      console.error(`[DatabaseService] Error updating capture analysis summary for ${captureId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get images that need analysis (don't have geminiAnalysis field)
+   * @param {string} captureId - Capture ID
+   * @param {number} limit - Maximum number of images to return
+   * @returns {Promise<Array>} Array of images needing analysis
+   */
+  async getImagesNeedingAnalysis(captureId, limit = 50) {
+    try {
+      // Get all images for the capture
+      const allImages = await this.getImages(captureId, { limit: 10000 });
+      
+      // Filter out images that already have analysis
+      const imagesNeedingAnalysis = allImages.filter(image => !image.geminiAnalysis);
+      
+      // Return up to the specified limit
+      const result = imagesNeedingAnalysis.slice(0, limit);
+      
+      console.log(`[DatabaseService] Found ${result.length} images needing analysis out of ${allImages.length} total`);
+      return result;
+    } catch (error) {
+      console.error('[DatabaseService] Error getting images needing analysis:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Remove all Gemini analysis results from images in a capture
+   * @param {string} captureId - Capture ID
+   * @returns {Promise<number>} Number of images reset
+   */
+  async resetCaptureAnalysis(captureId) {
+    try {
+      console.log(`[DatabaseService] Resetting analysis for capture ${captureId}`);
+      
+      // Get all images for this capture
+      const images = await this.getImages(captureId, { limit: 10000 });
+      
+      // Filter images that have analysis to reset
+      const imagesWithAnalysis = images.filter(image => image.geminiAnalysis);
+      
+      if (imagesWithAnalysis.length === 0) {
+        console.log(`[DatabaseService] No analysis data found to reset for capture ${captureId}`);
+        return 0;
+      }
+
+      // Reset analysis in batches
+      const batchSize = 400;
+      let resetCount = 0;
+      
+      for (let i = 0; i < imagesWithAnalysis.length; i += batchSize) {
+        const batch = writeBatch(this.db);
+        const batchImages = imagesWithAnalysis.slice(i, i + batchSize);
+        
+        batchImages.forEach(image => {
+          const imageRef = doc(this.db, "capture_images", image.id);
+          // Use FieldValue.delete() to remove the field entirely
+          batch.update(imageRef, {
+            geminiAnalysis: deleteField()
+          });
+        });
+        
+        await batch.commit();
+        resetCount += batchImages.length;
+        
+        console.log(`[DatabaseService] Reset batch of ${batchImages.length} images (Total: ${resetCount}/${imagesWithAnalysis.length})`);
+      }
+
+      // Also reset the capture-level analysis summary
+      await this.resetCaptureAnalysisSummary(captureId);
+      
+      console.log(`[DatabaseService] Successfully reset analysis for ${resetCount} images in capture ${captureId}`);
+      return resetCount;
+    } catch (error) {
+      console.error(`[DatabaseService] Error resetting analysis for capture ${captureId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Remove analysis summary from capture document
+   * @param {string} captureId - Capture ID
+   */
+  async resetCaptureAnalysisSummary(captureId) {
+    try {
+      const captureRef = doc(this.db, "captures", captureId);
+      await updateDoc(captureRef, {
+        analysisResults: deleteField()
+      });
+      
+      console.log(`[DatabaseService] Reset analysis summary for capture ${captureId}`);
+    } catch (error) {
+      console.error(`[DatabaseService] Error resetting capture analysis summary for ${captureId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Debug method to check analysis results for a capture
+   * @param {string} captureId - Capture ID to check
+   */
+  async debugAnalysisResults(captureId) {
+    try {
+      console.log(`[DatabaseService] Debugging analysis results for capture: ${captureId}`)
+      
+      // Get capture summary
+      const captureRef = doc(this.db, "captures", captureId);
+      const captureDoc = await getDoc(captureRef);
+      
+      if (captureDoc.exists()) {
+        const captureData = captureDoc.data();
+        console.log('📊 Capture Analysis Summary:', captureData.analysisResults || 'No summary found');
+      }
+      
+      // Get images with analysis
+      const images = await this.getImages(captureId, { limit: 10000 });
+      const analyzedImages = images.filter(img => img.geminiAnalysis);
+      const unanalyzedImages = images.filter(img => !img.geminiAnalysis);
+      
+      console.log(`🔍 Analysis Status:`)
+      console.log(`  - Total images: ${images.length}`)
+      console.log(`  - Analyzed images: ${analyzedImages.length}`)
+      console.log(`  - Unanalyzed images: ${unanalyzedImages.length}`)
+      
+      if (analyzedImages.length > 0) {
+        console.log('\n📋 Sample Analysis Results:')
+        analyzedImages.slice(0, 3).forEach((img, index) => {
+          console.log(`  Image ${index + 1}:`, {
+            id: img.id,
+            peopleCount: img.geminiAnalysis?.peopleCount,
+            success: img.geminiAnalysis?.success,
+            description: img.geminiAnalysis?.description?.substring(0, 50) + '...'
+          })
+        })
+      }
+      
+      return {
+        totalImages: images.length,
+        analyzedImages: analyzedImages.length,
+        unanalyzedImages: unanalyzedImages.length,
+        sampleResults: analyzedImages.slice(0, 3).map(img => ({
+          id: img.id,
+          analysis: img.geminiAnalysis
+        }))
+      }
+    } catch (error) {
+      console.error('[DatabaseService] Error debugging analysis results:', error);
       throw error;
     }
   }
