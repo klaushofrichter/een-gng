@@ -300,6 +300,96 @@ For detailed coverage usage instructions, see [`docs/test-coverage.md`](docs/tes
 
 The test coverage system provides valuable insights into code quality and helps identify areas that need additional testing to ensure application reliability and maintainability.
 
+## 🤖 AI Image Analysis
+
+This application integrates with **Google Gemini AI** to provide intelligent image analysis capabilities, including people counting and scene description.
+
+### 🔑 API Configuration
+
+To enable AI analysis features, you need to configure a Gemini API key:
+
+1. **Get an API Key**: Visit [Google AI Studio](https://ai.google.dev/) to create a free API key
+2. **Set Environment Variable**: Add your API key to your environment configuration:
+
+```bash
+# For local development, create a .env file:
+VITE_GEMINI_API_KEY=your_api_key_here
+
+# For production deployment:
+# Set the environment variable in your hosting platform
+```
+
+3. **Verify Configuration**: The analysis modal will show a green checkmark when the API key is properly configured
+
+### 📊 Analysis Features
+
+**People Counting**: Automatically counts the number of people visible in each image
+- Uses Google's Gemini 2.0 Flash model for accurate detection
+- Provides confidence ratings for each analysis
+- Stores results as metadata with each image
+
+**Scene Description**: Generates natural language descriptions of image content
+- Describes what people are doing in the scene
+- Identifies activities and contexts
+- Useful for searchability and cataloging
+
+**Batch Processing**: Efficiently analyzes entire capture sequences
+- Processes images one at a time to respect API limits
+- Shows real-time progress with current image being analyzed
+- Provides comprehensive summary statistics
+
+### 🎯 Usage Instructions
+
+1. **Create and Process a Capture**: First create a capture and process it to generate images
+2. **Open Analysis Modal**: Click the "Analyze" button on any capture with images
+3. **Start Analysis**: Click "Analyze Images" to begin AI processing
+4. **View Results**: See people counts overlaid on each image with descriptions
+5. **Review Summary**: Get aggregate statistics including total people detected and averages
+
+### 📈 Analysis Data Structure
+
+The analysis results are stored in the image metadata:
+
+```javascript
+{
+  geminiAnalysis: {
+    success: true,
+    description: "Three people standing on a beach, looking at the ocean",
+    peopleCount: 3,
+    confidence: "high",
+    analysisTimestamp: "2024-01-15T10:30:00Z",
+    error: null
+  }
+}
+```
+
+Capture-level summaries include:
+- Total images analyzed
+- Total people detected across all images
+- Average people per image
+- Success/failure rates
+
+### 🔒 Privacy & Security
+
+- **API Communication**: All analysis is performed through secure HTTPS requests to Google's API
+- **Data Handling**: Images are sent to Gemini as base64-encoded data for analysis
+- **No Storage**: Google does not store your images or analysis data
+- **Local Results**: All analysis results are stored in your Firebase database
+
+### 💰 Cost Considerations
+
+- **Free Tier**: Google AI Studio provides generous free quotas for API usage
+- **Rate Limiting**: The application includes 1-second delays between API calls to be respectful
+- **Efficient Processing**: Only analyzes images that haven't been processed yet
+- **Batch Management**: Analysis can be stopped and resumed without losing progress
+
+### 🛠️ Technical Implementation
+
+- **Services Architecture**: Modular design with separate Gemini, Analysis, and Database services
+- **Error Handling**: Robust error handling with retry logic and graceful degradation
+- **Progress Tracking**: Real-time progress updates during batch analysis
+- **Result Caching**: Analysis results are cached to avoid duplicate API calls
+
 ## Security Implementation
 
 This application implements a comprehensive multi-layered security architecture that protects against various attack vectors including XSS, injection attacks, and unauthorized access. The security implementation includes domain restrictions, authentication enforcement, data ownership validation, comprehensive input validation, and Content Security Policy.

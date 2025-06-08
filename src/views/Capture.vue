@@ -86,9 +86,9 @@
                         </button>
                         <button 
                           class="px-4 py-2 text-xs font-medium bg-green-600 text-white rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
-                          @click.stop="openProcessModal(capture)"
-                        >
-                          Process
+                                          @click.stop="openProcessModal(capture)"
+              >
+                Get Images
                         </button>
                         <button 
                           class="px-4 py-2 text-xs font-medium bg-red-600 text-white rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
@@ -148,7 +148,7 @@
       @click.stop
     >
       <div class="pb-4 border-b border-gray-200 dark:border-gray-600 flex items-center justify-between p-6">
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Process Capture</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Get Images</h3>
         <button 
           class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
           :disabled="isProcessing"
@@ -230,7 +230,7 @@
 
         <!-- Processing Progress -->
         <div v-if="isProcessing" class="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
-          <h4 class="text-sm font-medium text-green-900 dark:text-green-100 mb-2">Processing Images</h4>
+                      <h4 class="text-sm font-medium text-green-900 dark:text-green-100 mb-2">Getting Images</h4>
           <div class="space-y-2">
             <div class="flex justify-between text-sm text-green-700 dark:text-green-300">
               <span>Progress: {{ processedImages.length }} / {{ processImageCount }}</span>
@@ -338,7 +338,7 @@
         
         <!-- Completion Summary -->
         <div v-if="!isProcessing && !isUploading && uploadStats.total > 0" class="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
-          <h4 class="text-sm font-medium text-green-900 dark:text-green-100 mb-2">Process Complete</h4>
+                      <h4 class="text-sm font-medium text-green-900 dark:text-green-100 mb-2">Images Retrieved</h4>
           <div class="text-sm text-green-700 dark:text-green-300">
             Successfully captured and uploaded {{ uploadStats.success }}/{{ uploadStats.total }} images
             <span v-if="uploadStats.failed > 0" class="text-red-600 dark:text-red-400">
@@ -355,7 +355,7 @@
           :disabled="isProcessing || isUploading"
           @click="closeProcessModal"
         >
-          {{ isProcessing || isUploading ? 'Processing...' : 'Close' }}
+                      {{ isProcessing || isUploading ? 'Getting Images...' : 'Close' }}
         </button>
         <button 
           v-if="!isProcessing && !isUploading && uploadStats.total === 0"
@@ -371,7 +371,7 @@
         >
           <div class="flex items-center space-x-2">
             <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-            <span>{{ isProcessing && isUploading ? 'Capturing & Uploading...' : isProcessing ? 'Processing...' : 'Uploading...' }}</span>
+                          <span>{{ isProcessing && isUploading ? 'Capturing & Uploading...' : isProcessing ? 'Getting Images...' : 'Uploading...' }}</span>
           </div>
         </button>
       </div>
@@ -399,7 +399,7 @@
       <!-- Modal Header -->
       <div class="flex items-center justify-between pb-4 border-b border-gray-200 dark:border-gray-600 p-6">
         <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          Re-process Capture
+                      Re-get Images
         </h3>
         <button 
           class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -430,7 +430,7 @@
           
           <p class="text-sm text-gray-700 dark:text-gray-300 mb-4">
             This capture already has <strong>{{ reprocessCapture?.imageCount || 0 }} stored images</strong>. 
-            Re-processing will permanently delete all existing images and capture new ones.
+            Re-getting images will permanently delete all existing images and capture new ones.
           </p>
           
           <div v-if="reprocessCapture" class="bg-gray-50 dark:bg-gray-700 p-3 rounded mb-4">
@@ -480,7 +480,7 @@
             class="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 transition-colors"
             @click="confirmReprocess"
           >
-            Delete & Re-process
+                          Delete & Re-get Images
           </button>
         </div>
       </div>
@@ -703,7 +703,7 @@ const ensureUserProfile = async () => {
       lastName: data.lastName,
       email: data.email
     });
-    console.log("[Capture.vue] User profile fetched successfully:", eenAuthStore.userProfile);
+    //console.log("[Capture.vue] User profile fetched successfully:", eenAuthStore.userProfile);
   } catch (err) {
     console.error("[Capture.vue] Error fetching user profile:", err);
     throw new Error(`Failed to fetch user profile: ${err.message}`);
@@ -1520,21 +1520,21 @@ function handleDeleteFromDetails(capture) {
 
 // Open analyze modal
 function openAnalyzeModal(capture) {
-  console.log("[Capture.vue] Opening analyze modal for capture:", capture);
+  //console.log("[Capture.vue] Opening analyze modal for capture:", capture);
   analyzeCapture.value = capture;
   showAnalyzeModal.value = true;
 }
 
 // Close analyze modal
 function closeAnalyzeModal() {
-  console.log("[Capture.vue] Closing analyze modal");
+  //console.log("[Capture.vue] Closing analyze modal");
   showAnalyzeModal.value = false;
   analyzeCapture.value = null;
 }
 
 // Handle analyze action
 function handleAnalyze(capture) {
-  console.log("[Capture.vue] Handling analyze for capture:", capture);
+  //console.log("[Capture.vue] Handling analyze for capture:", capture);
   // Placeholder for future analysis functionality
   // This will be implemented when analysis features are added
 }

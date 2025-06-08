@@ -50,6 +50,9 @@ test.describe('Login and Navigation', () => {
     // click the "About" button in the navigation bar
     await clickNavButton(page, 'About')
 
+    // click the "Capture" button in the navigation bar
+    await clickNavButton(page, 'Capture')
+
     // click the "settings" button in the navigation bar
     await clickNavButton(page, 'Settings')
 

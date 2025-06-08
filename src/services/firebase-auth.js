@@ -121,14 +121,14 @@ class FirebaseAuthService {
     console.log('[FirebaseAuth] Getting custom token')
     const eenAuthStore = useAuthStore()
     
-    console.log('[FirebaseAuth] EEN Auth Store State:', {
-      isAuthenticated: eenAuthStore.isAuthenticated,
-      hasToken: !!eenAuthStore.token,
-      token: eenAuthStore.token ? eenAuthStore.token.substring(0, 20) + '...' : null,
-      hasUserProfile: !!eenAuthStore.userProfile,
-      userProfile: eenAuthStore.userProfile,
-      baseUrl: eenAuthStore.baseUrl
-    })
+    //console.log('[FirebaseAuth] EEN Auth Store State:', {
+    //  isAuthenticated: eenAuthStore.isAuthenticated,
+    //  hasToken: !!eenAuthStore.token,
+    //  token: eenAuthStore.token ? eenAuthStore.token.substring(0, 20) + '...' : null,
+    //  hasUserProfile: !!eenAuthStore.userProfile,
+    //  userProfile: eenAuthStore.userProfile,
+    //  baseUrl: eenAuthStore.baseUrl
+    //})
     
     if (!eenAuthStore.isAuthenticated) {
       console.error('[FirebaseAuth] EEN user not authenticated')
@@ -161,12 +161,12 @@ class FirebaseAuthService {
         throw new Error('Firebase Functions not initialized. Please refresh the page and try again.')
       }
       
-      console.log('[FirebaseAuth] Calling Firebase function with data:', {
-        eenUserId: String(eenUserId),
-        eenUserEmail,
-        eenBaseUrl: eenAuthStore.baseUrl,
-        hasAccessToken: !!eenAccessToken
-      })
+      //console.log('[FirebaseAuth] Calling Firebase function with data:', {
+      //  eenUserId: String(eenUserId),
+      //  eenUserEmail,
+      //  eenBaseUrl: eenAuthStore.baseUrl,
+      //  hasAccessToken: !!eenAccessToken
+      //})
       
       // Call the Firebase function to create a custom token
       const createCustomToken = httpsCallable(this.functions, 'createCustomToken')
@@ -233,14 +233,14 @@ class FirebaseAuthService {
       // Debug: Parse and log the ID token claims
       try {
         const idTokenResult = await user.getIdTokenResult()
-        console.log('[FirebaseAuth] ID Token Claims:', {
-          email: idTokenResult.claims.email,
-          eenUserEmail: idTokenResult.claims.eenUserEmail,
-          eenUserId: idTokenResult.claims.eenUserId,
-          provider: idTokenResult.claims.provider,
-          authProvider: idTokenResult.claims.authProvider,
-          allClaims: idTokenResult.claims
-        })
+        //console.log('[FirebaseAuth] ID Token Claims:', {
+        //  email: idTokenResult.claims.email,
+        //  eenUserEmail: idTokenResult.claims.eenUserEmail,
+        //  eenUserId: idTokenResult.claims.eenUserId,
+        //  provider: idTokenResult.claims.provider,
+        //  authProvider: idTokenResult.claims.authProvider,
+        //  allClaims: idTokenResult.claims
+        //})
       } catch (claimsError) {
         console.error('[FirebaseAuth] Error getting ID token claims:', claimsError)
       }
