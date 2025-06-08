@@ -196,9 +196,9 @@
                         </p>
                         <button 
                           class="mt-2 px-3 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 transition-colors"
-                          @click="$emit('process', capture)"
-                        >
-                          Re-process Capture
+                                          @click="$emit('process', capture)"
+              >
+                Re-get Images
                         </button>
                       </div>
                     </div>
@@ -295,7 +295,7 @@
               class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
               @click="$emit('process', capture)"
             >
-              Process
+              Get Images
             </button>
             <button 
               class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"

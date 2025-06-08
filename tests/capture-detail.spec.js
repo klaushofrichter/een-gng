@@ -153,14 +153,14 @@ test.describe('Capture Details Modal Tests', () => {
     console.log('✅ User Email label is visible')
 
     // Check for action buttons in footer
-    const processButton = page.locator('div.fixed.inset-0 button:has-text("Process")')
+    const processButton = page.locator('div.fixed.inset-0 button:has-text("Get Images")')
     const deleteButton = page.locator('div.fixed.inset-0 button:has-text("Delete Capture")')
     const closeFooterButton = page.locator('div.fixed.inset-0 button:has-text("Close")')
 
     await expect(processButton).toBeVisible()
     await expect(deleteButton).toBeVisible()
     await expect(closeFooterButton).toBeVisible()
-    console.log('✅ All action buttons (Process, Delete Capture, Close) are visible')
+    console.log('✅ All action buttons (Get Images, Delete Capture, Close) are visible')
 
     // Check if there are optional fields (these may or may not be present)
     console.log('🔍 Checking for optional fields...')
