@@ -54,6 +54,9 @@ test.describe('Mobile Navigation - Page Navigation', () => {
     // test the about page
     await clickMobileNavButton(page, 'About', basePath, 'About ' + APP_NAME)
 
+    // test the capture page
+    await clickMobileNavButton(page, 'Capture', basePath) // no expected text because it's not unique
+
     // test the settings page
     await clickMobileNavButton(page, 'Settings', basePath) // no expected text because it's not unique
 

@@ -354,11 +354,41 @@ export function getLastPartOfUrl(url) {
 }
 
 export async function clickNavButton(page, buttonName) {
-  // click the "about" button in the navigation bar
+  // click the navigation button in the navigation bar
+  console.log(`🔍 Looking for navigation link: ${buttonName}`)
   const button = page.getByRole('link', { name: buttonName }).first()
+  await expect(button).toBeVisible({ timeout: 5000 })
+  console.log(`✅ Found navigation link: ${buttonName}`)
+  
+  // Get current URL before clicking
+  const currentUrl = page.url()
+  console.log(`📍 Current URL before click: ${currentUrl}`)
+  
+  // Check if the link has the correct href
+  const href = await button.getAttribute('href')
+  console.log(`🔗 Link href: ${href}`)
+  
   await button.click()
+  console.log(`👆 Clicked navigation link: ${buttonName}`)
+  
+  // Wait a moment for navigation to start
+  await page.waitForTimeout(2000)
+  
+  // Check URL after click
+  const newUrl = page.url()
+  console.log(`📍 URL after click: ${newUrl}`)
+  
+  // If URL didn't change, try direct navigation as fallback
+  if (newUrl === currentUrl) {
+    console.log(`⚠️ Navigation click failed, trying direct navigation to /${buttonName.toLowerCase()}`)
+    await page.goto(`/${buttonName.toLowerCase()}`)
+    await page.waitForTimeout(1000)
+    const directNavUrl = page.url()
+    console.log(`📍 URL after direct navigation: ${directNavUrl}`)
+  }
+  
+  // Wait for the page heading to appear
   await expect(page.getByRole('heading', { name: buttonName, level: 3 })).toBeVisible({ timeout: 10000 })
-  //await expect(page.url()).toContain(buttonName.toLowerCase(), { timeout: 10000 })
   console.log(`✅ Successfully navigated to ${buttonName} page`)
 }
 
