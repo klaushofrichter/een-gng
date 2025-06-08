@@ -1,6 +1,7 @@
 import { storage } from '../firebase'
 import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebase/storage'
 import { getAuth } from 'firebase/auth'
+import { getFunctions, httpsCallable } from 'firebase/functions'
 import securityService from './security'
 
 /**
@@ -109,8 +110,28 @@ class StorageService {
       // Upload the blob
       const snapshot = await uploadBytes(storageRef, blob, metadata)
       
-      // Get download URL
-      const downloadUrl = await getDownloadURL(snapshot.ref)
+      // Generate signed URL for uniformity with rotated tokens
+      let downloadUrl
+      try {
+        console.log(`[StorageService] Generating signed URL for ${storagePath}`)
+        const functions = getFunctions()
+        const generateSignedUrl = httpsCallable(functions, 'generateSignedUrl')
+        
+        const result = await generateSignedUrl({
+          storagePath,
+          captureId
+        })
+        
+        downloadUrl = result.data.signedUrl
+        console.log(`[StorageService] ✅ Generated signed URL for ${storagePath}`)
+        console.log(`[StorageService] URL type: ${downloadUrl.includes('googleapis.com') ? 'Signed URL' : 'Token URL'}`)
+        
+      } catch (signedUrlError) {
+        console.warn(`[StorageService] ❌ Failed to generate signed URL, falling back to token URL:`, signedUrlError)
+        // Fallback to regular download URL if signed URL generation fails
+        downloadUrl = await getDownloadURL(snapshot.ref)
+        console.log(`[StorageService] 🔄 Using fallback token URL for ${storagePath}`)
+      }
       
       return {
         downloadUrl,
@@ -425,12 +446,32 @@ class StorageService {
         
         const batchPromises = batch.map(async (image) => {
           try {
-            // Get storage reference for the image
+            // Get storage path for the image
             const storagePath = `captures/${captureId}/image_${String(image.index).padStart(3, '0')}.jpg`
-            const storageRef = ref(storage, storagePath)
             
-            // Generate new download URL (this creates a new token)
-            const newDownloadUrl = await getDownloadURL(storageRef)
+            // Generate new signed URL using the same function as upload
+            let newDownloadUrl
+            try {
+              console.log(`[StorageService] Rotating to signed URL for image ${image.index}`)
+              const functions = getFunctions()
+              const generateSignedUrl = httpsCallable(functions, 'generateSignedUrl')
+              
+              const result = await generateSignedUrl({
+                storagePath,
+                captureId
+              })
+              
+              newDownloadUrl = result.data.signedUrl
+              console.log(`[StorageService] ✅ Generated new signed URL for image ${image.index}`)
+              console.log(`[StorageService] URL type: ${newDownloadUrl.includes('googleapis.com') ? 'Signed URL' : 'Token URL'}`)
+              
+            } catch (signedUrlError) {
+              console.warn(`[StorageService] ❌ Failed to generate signed URL for rotation, falling back to token URL:`, signedUrlError)
+              // Fallback to regular download URL if signed URL generation fails
+              const storageRef = ref(storage, storagePath)
+              newDownloadUrl = await getDownloadURL(storageRef)
+              console.log(`[StorageService] 🔄 Using fallback token URL for image ${image.index}`)
+            }
             
             // Update the image document in Firestore with new URL
             await databaseService.updateImageUrl(image.id, newDownloadUrl)
