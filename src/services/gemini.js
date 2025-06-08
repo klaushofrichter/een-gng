@@ -119,16 +119,19 @@ class GeminiService {
    */
   extractStoragePathFromUrl(url) {
     try {
-      // Handle different Firebase Storage URL formats
-      if (url.includes('firebasestorage.googleapis.com')) {
+      // Parse URL to get hostname for secure validation
+      const urlObj = new URL(url)
+      const hostname = urlObj.hostname
+      
+      // Handle different Firebase Storage URL formats with secure hostname validation
+      if (hostname === 'firebasestorage.googleapis.com' || hostname.endsWith('.firebasestorage.googleapis.com')) {
         // Format: https://firebasestorage.googleapis.com/v0/b/bucket/o/path%2Fto%2Ffile?alt=media&token=...
         const match = url.match(/\/o\/([^?]+)/)
         if (match) {
           return decodeURIComponent(match[1])
         }
-      } else if (url.includes('storage.googleapis.com')) {
+      } else if (hostname === 'storage.googleapis.com' || hostname.endsWith('.storage.googleapis.com')) {
         // Format: https://storage.googleapis.com/bucket/path/to/file
-        const urlObj = new URL(url)
         const pathParts = urlObj.pathname.split('/')
         if (pathParts.length >= 3) {
           // Remove empty first element and bucket name
