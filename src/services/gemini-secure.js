@@ -38,11 +38,22 @@ class SecureGeminiService {
 
       // Extract bucket name from URL or use default
       let bucketName = 'klaus-hofrichter-simple.firebasestorage.app'
-      if (imageData.downloadUrl.includes('firebasestorage.googleapis.com')) {
-        const bucketMatch = imageData.downloadUrl.match(/\/v0\/b\/([^/]+)\/o\//)
-        if (bucketMatch) {
-          bucketName = bucketMatch[1]
+      
+      // Securely validate Firebase Storage URL by parsing hostname
+      try {
+        const urlObj = new URL(imageData.downloadUrl)
+        const hostname = urlObj.hostname
+        
+        // Check if hostname is exactly firebasestorage.googleapis.com or a valid subdomain
+        if (hostname === 'firebasestorage.googleapis.com' || hostname.endsWith('.firebasestorage.googleapis.com')) {
+          const bucketMatch = imageData.downloadUrl.match(/\/v0\/b\/([^/]+)\/o\//)
+          if (bucketMatch) {
+            bucketName = bucketMatch[1]
+          }
         }
+      } catch (error) {
+        console.warn('[SecureGeminiService] Invalid URL format:', imageData.downloadUrl)
+        // Continue with default bucket name
       }
 
       // Prepare request payload
@@ -192,8 +203,12 @@ class SecureGeminiService {
     try {
       console.log('[SecureGeminiService] Extracting storage path from URL:', url)
       
-      // Handle different Firebase Storage URL formats
-      if (url.includes('firebasestorage.googleapis.com')) {
+      // Parse URL to get hostname for secure validation
+      const urlObj = new URL(url)
+      const hostname = urlObj.hostname
+      
+      // Handle different Firebase Storage URL formats with secure hostname validation
+      if (hostname === 'firebasestorage.googleapis.com' || hostname.endsWith('.firebasestorage.googleapis.com')) {
         // Format: https://firebasestorage.googleapis.com/v0/b/bucket/o/path%2Fto%2Ffile?alt=media&token=...
         const match = url.match(/\/o\/([^?]+)/)
         if (match) {
@@ -201,9 +216,8 @@ class SecureGeminiService {
           console.log('[SecureGeminiService] Extracted path (firebasestorage):', path)
           return path
         }
-      } else if (url.includes('storage.googleapis.com')) {
+      } else if (hostname === 'storage.googleapis.com' || hostname.endsWith('.storage.googleapis.com')) {
         // Format: https://storage.googleapis.com/bucket/path/to/file
-        const urlObj = new URL(url)
         const pathParts = urlObj.pathname.split('/')
         if (pathParts.length >= 3) {
           // Remove empty first element and bucket name
