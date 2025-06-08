@@ -703,7 +703,7 @@ const ensureUserProfile = async () => {
       lastName: data.lastName,
       email: data.email
     });
-    console.log("[Capture.vue] User profile fetched successfully:", eenAuthStore.userProfile);
+    //console.log("[Capture.vue] User profile fetched successfully:", eenAuthStore.userProfile);
   } catch (err) {
     console.error("[Capture.vue] Error fetching user profile:", err);
     throw new Error(`Failed to fetch user profile: ${err.message}`);

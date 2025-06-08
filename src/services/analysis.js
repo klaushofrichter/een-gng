@@ -1,4 +1,5 @@
-import { geminiService } from './gemini.js'
+// Smart service - automatically chooses between secure Cloud Function and local API
+import { smartGeminiService as geminiService } from './gemini-smart.js'
 import { databaseService } from './database.js'
 
 /**
@@ -121,7 +122,7 @@ class AnalysisService {
         analyzedImages: analysisResults.length,
         successfulAnalyses: successfulUpdates,
         totalPeopleDetected,
-        averagePeoplePerImage: Math.round(averagePeoplePerImage * 100) / 100, // Round to 2 decimal places
+        averagePeoplePerImage: Math.round(averagePeoplePerImage * 10) / 10, // Round to 1 decimal place
         status: failedUpdates > 0 ? 'completed_with_errors' : 'completed'
       }
 
@@ -144,7 +145,7 @@ class AnalysisService {
         successfulAnalyses: successfulUpdates,
         failedAnalyses: failedUpdates,
         totalPeopleDetected,
-        averagePeoplePerImage,
+        averagePeoplePerImage: Math.round(averagePeoplePerImage * 10) / 10, // Round to 1 decimal place
         duration: Math.round(duration / 1000), // in seconds
         details: analysisResults
       }

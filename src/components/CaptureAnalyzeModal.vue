@@ -52,24 +52,55 @@
           </div>
         </div>
 
-        <!-- API Key Configuration -->
-        <div v-if="!hasApiKey" class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+        <!-- Service Status -->
+        <div class="rounded-lg p-4" :class="[
+          serviceStatus.mode === 'secure' ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' :
+          serviceStatus.mode === 'local' ? 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800' :
+          'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+        ]">
           <div class="flex">
             <div class="flex-shrink-0">
-              <svg class="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+              <svg v-if="serviceStatus.mode === 'secure'" class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"></path>
+              </svg>
+              <svg v-else-if="serviceStatus.mode === 'local'" class="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+              </svg>
+              <svg v-else class="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
               </svg>
             </div>
             <div class="ml-3">
-              <h5 class="text-sm font-medium text-yellow-800 dark:text-yellow-400">
-                Gemini API Key Required
+              <h5 class="text-sm font-medium" :class="[
+                serviceStatus.mode === 'secure' ? 'text-green-800 dark:text-green-400' :
+                serviceStatus.mode === 'local' ? 'text-yellow-800 dark:text-yellow-400' :
+                'text-red-800 dark:text-red-400'
+              ]">
+                {{ serviceStatus.mode === 'secure' ? 'Secure AI Analysis' : 
+                   serviceStatus.mode === 'local' ? 'Local AI Analysis' : 
+                   'AI Analysis Not Configured' }}
               </h5>
-              <p class="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-                Please set the <code class="bg-yellow-100 dark:bg-yellow-800 px-1 rounded">VITE_GEMINI_API_KEY</code> environment variable to use AI analysis features.
+              <p class="text-sm mt-1" :class="[
+                serviceStatus.mode === 'secure' ? 'text-green-700 dark:text-green-300' :
+                serviceStatus.mode === 'local' ? 'text-yellow-700 dark:text-yellow-300' :
+                'text-red-700 dark:text-red-300'
+              ]">
+                {{ serviceRecommendation }}
               </p>
-              <p class="text-xs text-yellow-600 dark:text-yellow-400 mt-2">
-                You can get an API key from <a href="https://ai.google.dev/" target="_blank" class="underline">Google AI Studio</a>
-              </p>
+              <div class="mt-2 text-xs" :class="[
+                serviceStatus.mode === 'secure' ? 'text-green-600 dark:text-green-400' :
+                serviceStatus.mode === 'local' ? 'text-yellow-600 dark:text-yellow-400' :
+                'text-red-600 dark:text-red-400'
+              ]">
+                <div class="grid grid-cols-2 gap-2">
+                  <div>Security: {{ serviceStatus.security }}</div>
+                  <div>Rate Limiting: {{ serviceStatus.rateLimiting }}</div>
+                  <div>Authentication: {{ serviceStatus.authentication }}</div>
+                  <div v-if="serviceStatus.developmentFallback !== 'not available'">
+                    Fallback: {{ serviceStatus.developmentFallback }}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -176,42 +207,40 @@
           </div>
 
           <!-- Image Grid -->
-          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-96 overflow-y-auto">
+          <div class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 max-h-96 overflow-y-auto">
             <div 
               v-for="image in displayedImages" 
               :key="image.id"
-              class="relative bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden"
+              class="relative bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden cursor-pointer group"
+              :title="image.geminiAnalysis?.success ? formatDescription(image.geminiAnalysis.description) : ''"
             >
               <!-- Image -->
               <div class="aspect-square">
                 <img 
                   :src="image.downloadUrl" 
                   :alt="`Image ${image.index}`"
-                  class="w-full h-full object-cover"
+                  class="w-full h-full object-cover transition-transform group-hover:scale-105"
                   @error="handleImageError"
                 />
               </div>
               
-              <!-- Analysis Overlay -->
+              <!-- Analysis Overlay (simplified) -->
               <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none">
-                <div class="absolute bottom-2 left-2 right-2">
+                <div class="absolute bottom-1 left-1 right-1">
                   <div class="text-white text-xs">
-                    <div class="font-medium">Image {{ image.index }}</div>
-                    <div v-if="image.geminiAnalysis" class="mt-1">
+                    <div class="font-medium">{{ image.index }}</div>
+                    <div v-if="image.geminiAnalysis" class="mt-0.5">
                       <div v-if="image.geminiAnalysis.success" class="text-green-300">
                         <div v-if="image.geminiAnalysis.peopleCount !== null">
-                          👥 {{ image.geminiAnalysis.peopleCount }} people
-                        </div>
-                        <div class="text-xs opacity-80 truncate">
-                          {{ image.geminiAnalysis.description }}
+                          👥 {{ image.geminiAnalysis.peopleCount }}
                         </div>
                       </div>
                       <div v-else class="text-red-300 text-xs">
-                        ❌ Analysis failed
+                        ❌ Failed
                       </div>
                     </div>
                     <div v-else class="text-gray-300 text-xs">
-                      ⏳ Not analyzed
+                      ⏳ Pending
                     </div>
                   </div>
                 </div>
@@ -219,14 +248,88 @@
             </div>
           </div>
 
-          <!-- Load More Button -->
-          <div v-if="imagesWithAnalysis.allImages.length > displayedImageCount" class="text-center">
+          <!-- Pagination Controls -->
+          <div v-if="totalPages > 1" class="flex items-center justify-center space-x-4 mt-4">
             <button 
-              class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors text-sm"
-              @click="loadMoreImages"
+              class="flex items-center px-3 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              :disabled="currentPage === 1"
+              @click="previousPage"
             >
-              Load More Images ({{ displayedImageCount }} / {{ imagesWithAnalysis.allImages.length }})
+              <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+              </svg>
+              Previous
             </button>
+            
+            <div class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+              <span>Page {{ currentPage }} of {{ totalPages }}</span>
+              <span class="text-gray-400">•</span>
+              <span>{{ startImageIndex + 1 }}-{{ endImageIndex }} of {{ totalImages }}</span>
+            </div>
+            
+            <button 
+              class="flex items-center px-3 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              :disabled="currentPage === totalPages"
+              @click="nextPage"
+            >
+              Next
+              <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Detailed Analysis View -->
+          <div v-if="hasAnalyzedImages" class="mt-6 border-t border-gray-200 dark:border-gray-600 pt-4">
+            <button 
+              @click="showDetailedAnalysis = !showDetailedAnalysis"
+              class="flex items-center justify-between w-full text-left px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+            >
+              <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Detailed Analysis Descriptions
+              </span>
+              <svg 
+                class="w-4 h-4 text-gray-500 transition-transform"
+                :class="{ 'rotate-180': showDetailedAnalysis }"
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            </button>
+            
+            <div v-if="showDetailedAnalysis" class="mt-3 space-y-3 max-h-60 overflow-y-auto">
+              <div 
+                v-for="image in imagesWithAnalysis.analyzedImages.filter(img => img.geminiAnalysis?.success)" 
+                :key="image.id"
+                class="border border-gray-200 dark:border-gray-600 rounded-lg p-3 bg-white dark:bg-gray-800"
+              >
+                <div class="flex items-start space-x-3">
+                  <div class="flex-shrink-0">
+                    <img 
+                      :src="image.downloadUrl" 
+                      :alt="`Image ${image.index}`"
+                      class="w-16 h-16 object-cover rounded-lg"
+                      @error="handleImageError"
+                    />
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center space-x-2 mb-2">
+                      <span class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        Image {{ image.index }}
+                      </span>
+                      <span v-if="image.geminiAnalysis.peopleCount !== null" class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                        👥 {{ image.geminiAnalysis.peopleCount }} people
+                      </span>
+                    </div>
+                    <div class="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-line">
+                      {{ formatDescription(image.geminiAnalysis.description) }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -326,16 +429,75 @@ const analysisResults = ref(null)
 const analysisError = ref(null)
 const analysisStatus = ref(false)
 const imagesWithAnalysis = ref(null)
-const displayedImageCount = ref(12) // Start by showing 12 images
+const currentPage = ref(1)
+const showDetailedAnalysis = ref(false)
+
+// Utility function to format description with proper bullet points
+const formatDescription = (description) => {
+  if (!description) return ''
+  
+  // Replace "* " with "\n• " to create proper bullet points with line breaks
+  // First occurrence doesn't need a leading newline
+  return description
+    .replace(/^\*\s+/, '• ') // Replace first "* " with "• "
+    .replace(/\*\s+/g, '\n• ') // Replace subsequent "* " with "\n• "
+    .trim()
+}
 
 // Computed properties
 const hasApiKey = computed(() => {
-  return !!(import.meta.env.VITE_GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY)
+  return !!(import.meta.env.VITE_GEMINI_API_KEY_LOCAL || import.meta.env.VITE_GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY_LOCAL)
+})
+
+const serviceStatus = computed(() => {
+  return {
+    mode: import.meta.env.VITE_GEMINI_CLOUD_FUNCTION_URL ? 'secure' : 
+          import.meta.env.VITE_GEMINI_API_KEY_LOCAL ? 'local' : 'none',
+    security: import.meta.env.VITE_GEMINI_CLOUD_FUNCTION_URL ? 'high (server-side)' : 
+              import.meta.env.VITE_GEMINI_API_KEY_LOCAL ? 'low (client-side)' : 'none',
+    rateLimiting: import.meta.env.VITE_GEMINI_CLOUD_FUNCTION_URL ? 'enabled' : 'disabled',
+    authentication: import.meta.env.VITE_GEMINI_CLOUD_FUNCTION_URL ? 'required' : 'not required',
+    developmentFallback: import.meta.env.VITE_GEMINI_CLOUD_FUNCTION_URL && import.meta.env.VITE_GEMINI_API_KEY_LOCAL ? 'available' : 'not available'
+  }
+})
+
+const serviceRecommendation = computed(() => {
+  if (serviceStatus.value.mode === 'secure') {
+    return '✅ Using secure Cloud Function - recommended for production'
+  } else if (serviceStatus.value.mode === 'local') {
+    return '⚠️ Using local API key - only for development. Deploy Cloud Function for production.'
+  } else {
+    return '❌ No service configured. Set VITE_GEMINI_CLOUD_FUNCTION_URL for secure mode or VITE_GEMINI_API_KEY_LOCAL for local development.'
+  }
+})
+
+// Pagination configuration (4 rows max)
+const imagesPerPage = computed(() => {
+  // Based on grid: grid-cols-3 md:grid-cols-4 lg:grid-cols-6
+  // For 4 rows: 3×4=12, 4×4=16, 6×4=24
+  // Use medium breakpoint as default
+  return 16 // 4 rows × 4 columns
+})
+
+const totalImages = computed(() => {
+  return imagesWithAnalysis.value?.allImages.length || 0
+})
+
+const totalPages = computed(() => {
+  return Math.ceil(totalImages.value / imagesPerPage.value)
+})
+
+const startImageIndex = computed(() => {
+  return (currentPage.value - 1) * imagesPerPage.value
+})
+
+const endImageIndex = computed(() => {
+  return Math.min(startImageIndex.value + imagesPerPage.value, totalImages.value)
 })
 
 const displayedImages = computed(() => {
   if (!imagesWithAnalysis.value) return []
-  return imagesWithAnalysis.value.allImages.slice(0, displayedImageCount.value)
+  return imagesWithAnalysis.value.allImages.slice(startImageIndex.value, endImageIndex.value)
 })
 
 const hasUnanalyzedImages = computed(() => {
@@ -364,8 +526,16 @@ const handleBackdropClick = () => {
   closeModal()
 }
 
-const loadMoreImages = () => {
-  displayedImageCount.value += 12
+const previousPage = () => {
+  if (currentPage.value > 1) {
+    currentPage.value--
+  }
+}
+
+const nextPage = () => {
+  if (currentPage.value < totalPages.value) {
+    currentPage.value++
+  }
 }
 
 const handleImageError = (event) => {
@@ -464,7 +634,7 @@ watch(() => props.capture, async (newCapture) => {
     analysisResults.value = null
     analysisError.value = null
     analysisStatus.value = false
-    displayedImageCount.value = 12
+    currentPage.value = 1
     isResetting.value = false
   }
 }, { immediate: true })

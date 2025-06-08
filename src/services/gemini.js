@@ -7,7 +7,7 @@ import app from '../firebase'
  */
 class GeminiService {
   constructor() {
-    this.apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY
+    this.apiKey = import.meta.env.VITE_GEMINI_API_KEY_LOCAL || import.meta.env.VITE_GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY_LOCAL
     this.baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models'
     this.model = 'gemini-2.0-flash'
     this.storage = getStorage(app)
