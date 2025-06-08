@@ -78,6 +78,13 @@
                       <!-- Action buttons: Keep in same row on all screen sizes, right-aligned -->
                       <div class="flex flex-row gap-2 justify-end sm:ml-2">
                         <button 
+                          v-if="capture.imageCount && capture.imageCount > 0"
+                          class="px-4 py-2 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                          @click.stop="openAnalyzeModal(capture)"
+                        >
+                          Analyze
+                        </button>
+                        <button 
                           class="px-4 py-2 text-xs font-medium bg-green-600 text-white rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
                           @click.stop="openProcessModal(capture)"
                         >
@@ -371,6 +378,14 @@
     </div>
   </div>
 
+  <!-- Analyze Modal -->
+  <CaptureAnalyzeModal
+    :show="showAnalyzeModal"
+    :capture="analyzeCapture"
+    @close="closeAnalyzeModal"
+    @analyze="handleAnalyze"
+  />
+
   <!-- Re-process Confirmation Modal -->
   <div 
     v-if="showReprocessModal" 
@@ -484,6 +499,7 @@ import { databaseService } from '../services/database'
 import CaptureDetailsModal from '../components/CaptureDetailsModal.vue'
 import CaptureDeleteModal from '../components/CaptureDeleteModal.vue'
 import CreateCaptureModal from '../components/CreateCaptureModal.vue'
+import CaptureAnalyzeModal from '../components/CaptureAnalyzeModal.vue'
 
 const eenAuthStore = useEenAuthStore()
 const captures = ref([]);
@@ -508,6 +524,10 @@ const processCapture = ref(null);
 // Re-process confirmation modal state
 const showReprocessModal = ref(false);
 const reprocessCapture = ref(null);
+
+// Analyze modal state
+const showAnalyzeModal = ref(false);
+const analyzeCapture = ref(null);
 
 // Process modal state
 const processImageCount = ref(0);
@@ -572,7 +592,8 @@ const isAnyModalOpen = computed(() => {
          showCreateModal.value || 
          showDeleteModal.value || 
          showProcessModal.value || 
-         showReprocessModal.value;
+         showReprocessModal.value ||
+         showAnalyzeModal.value;
 });
 
 // Handle backdrop clicks for modals
@@ -591,6 +612,9 @@ function handleModalBackdropClick(event, modalType) {
         break;
       case 'reprocess':
         closeReprocessModal();
+        break;
+      case 'analyze':
+        closeAnalyzeModal();
         break;
     }
   }
@@ -915,6 +939,8 @@ const handleEscapeKey = (event) => {
       closeDeleteModal();
     } else if (showReprocessModal.value) {
       closeReprocessModal();
+    } else if (showAnalyzeModal.value) {
+      closeAnalyzeModal();
     } else if (showModal.value) {
       closeCaptureModal();
     } else if (showProcessModal.value && !isProcessing.value && !isUploading.value) {
@@ -925,8 +951,8 @@ const handleEscapeKey = (event) => {
 };
 
 // Watch for modal state changes to add/remove ESC key listener
-watch([showModal, showCreateModal, showDeleteModal, showProcessModal, showReprocessModal], ([modal, createModal, deleteModal, processModal, reprocessModal]) => {
-  const anyModalOpen = modal || createModal || deleteModal || processModal || reprocessModal;
+watch([showModal, showCreateModal, showDeleteModal, showProcessModal, showReprocessModal, showAnalyzeModal], ([modal, createModal, deleteModal, processModal, reprocessModal, analyzeModal]) => {
+  const anyModalOpen = modal || createModal || deleteModal || processModal || reprocessModal || analyzeModal;
   
   if (anyModalOpen) {
     // Add ESC key listener when any modal opens
@@ -1490,5 +1516,26 @@ function handleProcessFromDetails(capture) {
 function handleDeleteFromDetails(capture) {
   closeCaptureModal();
   openDeleteModal(capture);
+}
+
+// Open analyze modal
+function openAnalyzeModal(capture) {
+  console.log("[Capture.vue] Opening analyze modal for capture:", capture);
+  analyzeCapture.value = capture;
+  showAnalyzeModal.value = true;
+}
+
+// Close analyze modal
+function closeAnalyzeModal() {
+  console.log("[Capture.vue] Closing analyze modal");
+  showAnalyzeModal.value = false;
+  analyzeCapture.value = null;
+}
+
+// Handle analyze action
+function handleAnalyze(capture) {
+  console.log("[Capture.vue] Handling analyze for capture:", capture);
+  // Placeholder for future analysis functionality
+  // This will be implemented when analysis features are added
 }
 </script> 
