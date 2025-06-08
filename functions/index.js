@@ -566,6 +566,70 @@ exports.rotateOldTokens = onSchedule({
 });
 
 /**
+ * Generate a signed URL for a newly uploaded image
+ * This ensures uniformity with rotated tokens
+ */
+exports.generateSignedUrl = onCall(async (request) => {
+  try {
+    const { storagePath, captureId } = request.data;
+    
+    // Verify user authentication
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Authentication required');
+    }
+    
+    // Validate required parameters
+    if (!storagePath || !captureId) {
+      throw new HttpsError('invalid-argument', 'Missing required parameters: storagePath and captureId');
+    }
+    
+    // Sanitize inputs
+    const sanitizedStoragePath = sanitizeInput(storagePath);
+    const sanitizedCaptureId = sanitizeInput(captureId);
+    
+    // Validate that the storage path matches the expected pattern
+    const expectedPathPattern = new RegExp(`^captures/${sanitizedCaptureId}/image_\\d{3}\\.jpg$`);
+    if (!expectedPathPattern.test(sanitizedStoragePath)) {
+      throw new HttpsError('invalid-argument', 'Invalid storage path format');
+    }
+    
+    logger.info(`Generating signed URL for ${sanitizedStoragePath}`);
+    
+    // Generate signed URL
+    const file = storage.bucket().file(sanitizedStoragePath);
+    
+    // Check if file exists
+    const [exists] = await file.exists();
+    if (!exists) {
+      throw new HttpsError('not-found', `File not found: ${sanitizedStoragePath}`);
+    }
+    
+    // Generate signed URL with 24-hour expiration (same as rotation)
+    const [signedUrl] = await file.getSignedUrl({
+      action: 'read',
+      expires: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+    });
+    
+    logger.info(`Generated signed URL for ${sanitizedStoragePath}`);
+    
+    return {
+      signedUrl,
+      storagePath: sanitizedStoragePath,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    };
+    
+  } catch (error) {
+    logger.error('Error generating signed URL:', error);
+    
+    if (error.code && error.code.startsWith('functions/')) {
+      throw error;
+    }
+    
+    throw new HttpsError('internal', `Failed to generate signed URL: ${error.message}`);
+  }
+});
+
+/**
  * Rotate tokens for all captures by a specific user
  */
 exports.rotateTokensForUser = onCall(async (request) => {
