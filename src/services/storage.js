@@ -18,6 +18,33 @@ class StorageService {
   }
 
   /**
+   * Securely determine URL type by validating the hostname
+   * @param {string} url - The URL to check
+   * @returns {string} 'Signed URL', 'Token URL', or 'Unknown URL'
+   */
+  getUrlType(url) {
+    try {
+      const urlObj = new URL(url)
+      const hostname = urlObj.hostname
+      
+      // Check for Google Cloud Storage signed URLs
+      if (hostname === 'storage.googleapis.com') {
+        return 'Signed URL'
+      }
+      
+      // Check for Firebase Storage token URLs
+      if (hostname === 'firebasestorage.googleapis.com') {
+        return 'Token URL'
+      }
+      
+      return 'Unknown URL'
+    } catch (error) {
+      console.warn('[StorageService] Invalid URL format:', error)
+      return 'Invalid URL'
+    }
+  }
+
+  /**
    * Convert base64 data URL to Blob
    * @param {string} dataUrl - Base64 data URL (e.g., "data:image/jpeg;base64,...")
    * @returns {Blob} Blob object
@@ -124,7 +151,7 @@ class StorageService {
         
         downloadUrl = result.data.signedUrl
         console.log(`[StorageService] ✅ Generated signed URL for ${storagePath}`)
-        console.log(`[StorageService] URL type: ${downloadUrl.includes('googleapis.com') ? 'Signed URL' : 'Token URL'}`)
+        console.log(`[StorageService] URL type: ${this.getUrlType(downloadUrl)}`)
         
       } catch (signedUrlError) {
         console.warn(`[StorageService] ❌ Failed to generate signed URL, falling back to token URL:`, signedUrlError)
@@ -463,7 +490,7 @@ class StorageService {
               
               newDownloadUrl = result.data.signedUrl
               console.log(`[StorageService] ✅ Generated new signed URL for image ${image.index}`)
-              console.log(`[StorageService] URL type: ${newDownloadUrl.includes('googleapis.com') ? 'Signed URL' : 'Token URL'}`)
+              console.log(`[StorageService] URL type: ${this.getUrlType(newDownloadUrl)}`)
               
             } catch (signedUrlError) {
               console.warn(`[StorageService] ❌ Failed to generate signed URL for rotation, falling back to token URL:`, signedUrlError)
