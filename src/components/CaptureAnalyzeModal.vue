@@ -349,7 +349,7 @@
           
           <!-- Download Button -->
           <button 
-            v-if="hasAnalyzedImages && analysisResults"
+            v-if="hasAnalyzedImages"
             type="button"
             class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             :disabled="isAnalyzing || isResetting"
@@ -509,6 +509,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { analysisService } from '../services/analysis'
+import { smartGeminiService } from '../services/gemini-smart'
 
 // Props
 const props = defineProps({
@@ -552,7 +553,8 @@ const formatDescription = (description) => {
 
 // Computed properties
 const hasApiKey = computed(() => {
-  return !!(import.meta.env.VITE_GEMINI_API_KEY_LOCAL || import.meta.env.VITE_GEMINI_API_KEY)
+  // Check if the smart Gemini service is available (either secure Cloud Function or local API key)
+  return smartGeminiService.isAvailable()
 })
 
 
@@ -732,8 +734,13 @@ const loadImagesWithAnalysis = async () => {
 }
 
 const downloadAnalysisData = () => {
-  if (!props.capture || !imagesWithAnalysis.value || !analysisResults.value) {
+  if (!props.capture || !imagesWithAnalysis.value) {
     console.error('[CaptureAnalyzeModal] Missing data for download')
+    return
+  }
+  
+  if (!hasAnalyzedImages.value) {
+    console.error('[CaptureAnalyzeModal] No analyzed images available for download')
     return
   }
 
@@ -759,12 +766,19 @@ const downloadAnalysisData = () => {
       
       // Analysis summary
       analysisSummary: {
-        ...analysisResults.value,
+        ...(analysisResults.value || {}), // Handle case where analysisResults is null
         analysisCompletedAt: new Date().toISOString(),
         totalImagesInCapture: imagesWithAnalysis.value.totalImages,
         imagesAnalyzed: imagesWithAnalysis.value.analyzedImages.length,
         imagesNotAnalyzed: imagesWithAnalysis.value.unanalyzedImages.length,
-        analysisProgress: Math.round(imagesWithAnalysis.value.analysisProgress)
+        analysisProgress: Math.round(imagesWithAnalysis.value.analysisProgress),
+        // Calculate summary from actual image data if analysisResults is null
+        totalPeopleDetected: imagesWithAnalysis.value.analyzedImages.reduce((sum, img) => 
+          sum + (img.geminiAnalysis?.peopleCount || 0), 0),
+        averagePeoplePerImage: imagesWithAnalysis.value.analyzedImages.length > 0
+          ? Math.round((imagesWithAnalysis.value.analyzedImages.reduce((sum, img) => 
+              sum + (img.geminiAnalysis?.peopleCount || 0), 0) / imagesWithAnalysis.value.analyzedImages.length) * 10) / 10
+          : 0
       },
       
       // Detailed image analysis results
