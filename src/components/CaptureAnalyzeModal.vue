@@ -248,6 +248,113 @@
             </button>
           </div>
 
+          <!-- People Count Over Time Chart -->
+          <div v-if="hasAnalyzedImages && chartData.length > 1" class="mt-6 border-t border-gray-200 dark:border-gray-600 pt-4">
+            <div class="mb-4">
+              <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">People Count Over Time</h4>
+              <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 p-4">
+                <!-- Chart SVG -->
+                <div class="w-full h-64 relative">
+                  <svg 
+                    class="w-full h-full" 
+                    viewBox="0 0 800 200" 
+                    preserveAspectRatio="xMidYMid meet"
+                  >
+                    <!-- Grid lines -->
+                    <defs>
+                      <pattern id="grid" width="40" height="20" patternUnits="userSpaceOnUse">
+                        <path d="M 40 0 L 0 0 0 20" fill="none" stroke="#e5e7eb" stroke-width="0.5" opacity="0.5"/>
+                      </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#grid)" />
+                    
+                    <!-- Y-axis labels -->
+                    <g v-for="(tick, index) in yAxisTicks" :key="`y-${index}`">
+                      <text 
+                        :x="35" 
+                        :y="190 - (tick.value / maxPeopleCount) * 160" 
+                        text-anchor="end" 
+                        class="text-xs fill-gray-500 dark:fill-gray-400"
+                        dominant-baseline="middle"
+                      >
+                        {{ tick.value }}
+                      </text>
+                      <line 
+                        :x1="40" 
+                        :x2="760" 
+                        :y1="190 - (tick.value / maxPeopleCount) * 160" 
+                        :y2="190 - (tick.value / maxPeopleCount) * 160" 
+                        stroke="#e5e7eb" 
+                        stroke-width="0.5" 
+                        opacity="0.3"
+                      />
+                    </g>
+                    
+                    <!-- X-axis -->
+                    <line x1="40" y1="190" x2="760" y2="190" stroke="#374151" stroke-width="1"/>
+                    <!-- Y-axis -->
+                    <line x1="40" y1="30" x2="40" y2="190" stroke="#374151" stroke-width="1"/>
+                    
+                    <!-- Data line -->
+                    <polyline 
+                      :points="chartLinePoints" 
+                      fill="none" 
+                      stroke="#3b82f6" 
+                      stroke-width="2"
+                      stroke-linejoin="round"
+                      stroke-linecap="round"
+                    />
+                    
+                    <!-- Data points -->
+                    <g v-for="(point, index) in chartData" :key="`point-${index}`">
+                      <circle 
+                        :cx="40 + (index / (chartData.length - 1)) * 720" 
+                        :cy="190 - (point.peopleCount / maxPeopleCount) * 160" 
+                        r="4" 
+                        :fill="point.peopleCount > 0 ? '#3b82f6' : '#9ca3af'"
+                        stroke="white" 
+                        stroke-width="2"
+                        class="cursor-pointer"
+                        @click="showChartImageDetail(point)"
+                      >
+                        <title>{{ formatChartTooltip(point) }}</title>
+                      </circle>
+                    </g>
+                    
+                    <!-- X-axis time labels -->
+                    <g v-for="(point, index) in chartData.filter((_, i) => i % Math.max(1, Math.floor(chartData.length / 6)) === 0)" :key="`time-${index}`">
+                      <text 
+                        :x="40 + (chartData.indexOf(point) / (chartData.length - 1)) * 720" 
+                        y="205" 
+                        text-anchor="middle" 
+                        class="text-xs fill-gray-500 dark:fill-gray-400"
+                      >
+                        {{ formatTimeLabel(point.timestamp) }}
+                      </text>
+                    </g>
+                  </svg>
+                </div>
+                
+                <!-- Chart Legend & Stats -->
+                <div class="mt-4 flex items-center justify-between text-sm">
+                  <div class="flex items-center space-x-6">
+                    <div class="flex items-center space-x-2">
+                      <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
+                      <span class="text-gray-600 dark:text-gray-400">People detected</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                      <div class="w-3 h-3 bg-gray-400 rounded-full"></div>
+                      <span class="text-gray-600 dark:text-gray-400">No people</span>
+                    </div>
+                  </div>
+                  <div class="text-gray-500 dark:text-gray-400">
+                    Max: {{ maxPeopleCount }} • Avg: {{ averagePeopleCount }} • Total images: {{ chartData.length }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Detailed Analysis View -->
           <div v-if="hasAnalyzedImages" class="mt-6 border-t border-gray-200 dark:border-gray-600 pt-4">
             <button 
@@ -603,6 +710,59 @@ const hasAnalyzedImages = computed(() => {
   return imagesWithAnalysis.value.analyzedImages.length > 0
 })
 
+// Chart data computed properties
+const chartData = computed(() => {
+  if (!hasAnalyzedImages.value) return []
+  
+  // Get analyzed images and sort by timestamp
+  const sortedImages = [...imagesWithAnalysis.value.analyzedImages]
+    .filter(img => img.geminiAnalysis?.success && img.timestamp)
+    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+    .map(img => ({
+      imageId: img.id,
+      imageIndex: img.index,
+      timestamp: img.timestamp,
+      peopleCount: img.geminiAnalysis?.peopleCount || 0,
+      description: img.geminiAnalysis?.description,
+      downloadUrl: img.downloadUrl
+    }))
+  
+  return sortedImages
+})
+
+const maxPeopleCount = computed(() => {
+  if (chartData.value.length === 0) return 10
+  const max = Math.max(...chartData.value.map(d => d.peopleCount))
+  return max > 0 ? max + 1 : 5 // Add some headroom
+})
+
+const averagePeopleCount = computed(() => {
+  if (chartData.value.length === 0) return 0
+  const total = chartData.value.reduce((sum, d) => sum + d.peopleCount, 0)
+  return Math.round((total / chartData.value.length) * 10) / 10
+})
+
+const yAxisTicks = computed(() => {
+  const ticks = []
+  const step = Math.max(1, Math.ceil(maxPeopleCount.value / 5))
+  for (let i = 0; i <= maxPeopleCount.value; i += step) {
+    ticks.push({ value: i })
+  }
+  return ticks
+})
+
+const chartLinePoints = computed(() => {
+  if (chartData.value.length < 2) return ''
+  
+  const points = chartData.value.map((point, index) => {
+    const x = 40 + (index / (chartData.value.length - 1)) * 720
+    const y = 190 - (point.peopleCount / maxPeopleCount.value) * 160
+    return `${x},${y}`
+  })
+  
+  return points.join(' ')
+})
+
 // Methods
 const closeModal = () => {
   if (!isAnalyzing.value && !isResetting.value) {
@@ -647,6 +807,33 @@ const handleKeydown = (event) => {
 const handleImageError = (event) => {
   console.log('Image failed to load:', event.target.src)
   // You could set a placeholder image here
+}
+
+// Chart helper methods
+const formatTimeLabel = (timestamp) => {
+  const date = new Date(timestamp)
+  return date.toLocaleTimeString('en-US', { 
+    hour: '2-digit', 
+    minute: '2-digit',
+    hour12: false 
+  })
+}
+
+const formatChartTooltip = (point) => {
+  const time = new Date(point.timestamp).toLocaleTimeString('en-US', { 
+    hour: '2-digit', 
+    minute: '2-digit',
+    hour12: false 
+  })
+  return `Image ${point.imageIndex} at ${time}: ${point.peopleCount} people`
+}
+
+const showChartImageDetail = (point) => {
+  // Find the full image object and show detail modal
+  const fullImage = imagesWithAnalysis.value.analyzedImages.find(img => img.id === point.imageId)
+  if (fullImage) {
+    openImageDetail(fullImage)
+  }
 }
 
 const startAnalysis = async () => {

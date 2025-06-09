@@ -376,12 +376,43 @@ Capture-level summaries include:
 - **No Storage**: Google does not store your images or analysis data
 - **Local Results**: All analysis results are stored in your Firebase database
 
+### 🚥 Rate Limits & Usage Policies
+
+The application implements comprehensive rate limiting to ensure fair usage and prevent API abuse:
+
+#### **Server-Side Rate Limits (Cloud Function)**
+- **Hourly Limit**: 50 requests per user per hour (rolling 60-minute window)
+- **Daily Limit**: 200 requests per user per day (rolling 24-hour window)
+- **Enforcement**: Server tracks usage in Firestore and returns HTTP 429 when exceeded
+- **Retry After**: 1 hour cooldown period when hourly limit is reached
+
+#### **Client-Side Throttling**
+- **Secure Mode**: 2-second delay between analysis requests (recommended for production)
+- **Local Mode**: 1-second delay between requests (development only)
+- **Purpose**: Respectful API usage and stability
+
+#### **Rate Limit Response**
+When limits are exceeded, you'll receive:
+```json
+{
+  "error": "Rate limit exceeded. Please try again later.",
+  "retryAfter": 3600
+}
+```
+
+#### **Usage Guidelines**
+- **50 images/hour** = Sustainable for continuous analysis
+- **200 images/day** = Sufficient for most capture scenarios  
+- **Fair Usage**: Limits apply per user email to ensure equitable access
+- **Batch Planning**: For large captures (100+ images), plan analysis across multiple sessions
+
 ### 💰 Cost Considerations
 
 - **Free Tier**: Google AI Studio provides generous free quotas for API usage
-- **Rate Limiting**: The application includes 1-second delays between API calls to be respectful
+- **Conservative Limits**: Rate limits designed to stay well within free tier bounds
 - **Efficient Processing**: Only analyzes images that haven't been processed yet
 - **Batch Management**: Analysis can be stopped and resumed without losing progress
+- **Cost Monitoring**: Server-side tracking helps monitor API usage patterns
 
 ### 🛠️ Technical Implementation
 
