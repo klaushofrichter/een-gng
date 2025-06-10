@@ -35,7 +35,7 @@ test.describe('Logout Functionality Tests', () => {
     
     // Login first
     await loginToApplication(page, basePath)
-    console.log('✅ Successfully logged in')
+    //console.log('✅ Successfully logged in')
     
     // Measure logout time
     const startTime = Date.now()
