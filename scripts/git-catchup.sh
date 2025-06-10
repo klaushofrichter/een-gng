@@ -3,10 +3,10 @@ echo "$0: Catching up with the een-login sources"
 set -e
 
 DELAY=5
-echo -n "$0: starting in ${DELAY} seconds"
+printf "$0: starting in ${DELAY} seconds"
 while [ ${DELAY} -gt 0 ];
 do
-  echo -n "."
+  printf "."
   DELAY=$(( ${DELAY} - 1 ))
   sleep 1
 done
