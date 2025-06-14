@@ -45,6 +45,15 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
 
+      - name: Debug npm installation
+        run: |
+          echo "Node version: $(node --version)"
+          echo "npm version: $(npm --version)"
+          echo "Installed packages:"
+          npm list --depth=0 || true
+          echo "Checking for rollup dependencies:"
+          npm list | grep rollup || echo "No rollup packages found"
+
       - name: Build application
         run: npm run build
 
