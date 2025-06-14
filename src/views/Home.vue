@@ -143,7 +143,7 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { APP_NAME } from '../constants'
 import { cameraService } from '../services/cameras'

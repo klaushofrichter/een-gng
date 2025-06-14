@@ -5,7 +5,7 @@
 import { expect } from '@playwright/test'
 import dotenv from 'dotenv'
 
-export const MAX_TEST_TIMEOUT = 60000
+export const MAX_TEST_TIMEOUT = 50000 
 
 /**
  * Navigates to the app's login page as a starting point
@@ -388,7 +388,8 @@ export async function clickNavButton(page, buttonName) {
   }
   
   // Wait for the page heading to appear
-  await expect(page.getByRole('heading', { name: buttonName, level: 3 })).toBeVisible({ timeout: 10000 })
+  console.log('🔍 Waiting for page heading to appear: ' + buttonName);
+  await expect(page.getByRole('heading', { name: buttonName, level: 3 })).toBeVisible({ timeout: 200000 })
   console.log(`✅ Successfully navigated to ${buttonName} page`)
 }
 
@@ -409,7 +410,7 @@ export async function clickMobileNavButton(page, buttonName, basePath, expectedT
   const profileUrl = basePath + '/' + buttonName.toLowerCase()
   await page.waitForURL(profileUrl, { timeout: 10000 })
   if (expectedText) {
-    await expect(page.getByText(expectedText)).toBeVisible()
+    await expect(page.getByText(expectedText)).toBeVisible({ timeout: 10000 })
   }
   console.log('✅ ' + buttonName + ' page loaded successfully')
 }

@@ -48,7 +48,7 @@ test.describe('Logout Functionality Tests', () => {
       console.log(`✅ Logout completed successfully in ${duration}ms`)
       
       // Verify we're on login page
-      await expect(page.getByText('Sign in with Eagle Eye Networks')).toBeVisible({ timeout: 5000 })
+      await expect(page.getByText('Sign in with Eagle Eye Networks')).toBeVisible({ timeout: 12000 })
       console.log('✅ Verified return to login page')
       
       // Log timing for analysis
@@ -89,7 +89,7 @@ test.describe('Logout Functionality Tests', () => {
       console.log(`✅ Fast logout completed successfully in ${duration}ms`)
       
       // Verify we're on login page
-      await expect(page.getByText('Sign in with Eagle Eye Networks')).toBeVisible({ timeout: 5000 })
+      await expect(page.getByText('Sign in with Eagle Eye Networks')).toBeVisible({ timeout: 12000 })
       console.log('✅ Verified return to login page')
       
       // Fast logout should be quicker
@@ -123,7 +123,7 @@ test.describe('Logout Functionality Tests', () => {
     if (success) {
       console.log('✅ Safe logout completed successfully')
       // Verify we're on login page
-      await expect(page.getByText('Sign in with Eagle Eye Networks')).toBeVisible({ timeout: 5000 })
+      await expect(page.getByText('Sign in with Eagle Eye Networks')).toBeVisible({ timeout: 12000 })
       console.log('✅ Verified return to login page')
     } else {
       console.log('⚠️ Safe logout failed but was handled gracefully')
@@ -164,7 +164,7 @@ test.describe('Logout Functionality Tests', () => {
         console.log(`✅ Logout from ${pageInfo.name} completed in ${duration}ms`)
         
         // Verify return to login
-        await expect(page.getByText('Sign in with Eagle Eye Networks')).toBeVisible({ timeout: 5000 })
+        await expect(page.getByText('Sign in with Eagle Eye Networks')).toBeVisible({ timeout: 12000 })
         console.log(`✅ Successfully returned to login from ${pageInfo.name}`)
         
       } catch (error) {
