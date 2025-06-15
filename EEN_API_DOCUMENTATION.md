@@ -1,6 +1,12 @@
-# EEN API Documentation
+# Node API for the EEN API Endpoints - Documentation
 
-This document provides comprehensive documentation for the EEN (Eagle Eye Networks) API services used in the application. Pleas note that there is a version of this EEN Login application that shows more details 
+This document provides comprehensive documentation for the EEN (Eagle Eye Networks) API services used in this application. Please vist the 
+[Eagle Eye Networks Developer Portal](https://developer.eagleeyenetworks.com/docs/getting-started)
+for more 
+details and official information from the original source. The documentation here was created 
+independently and is not maintained or endorsed by Eagle Eye Networks. 
+
+Please note that there is a version of this EEN Login application that shows more details 
 and practial examples [here](https://github.com/klaushofrichter/een-playgroundimage.png).
 
 ## Table of Contents
