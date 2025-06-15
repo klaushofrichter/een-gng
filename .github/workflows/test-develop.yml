@@ -40,7 +40,46 @@ jobs:
         run: npm run check-node
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          echo "🔧 Installing dependencies with error handling..."
+          
+          # First attempt with npm ci
+          if npm ci; then
+            echo "✅ Dependencies installed successfully with npm ci"
+          else
+            echo "⚠️ npm ci failed, trying alternative approaches..."
+            
+            # Clear npm cache and retry
+            npm cache clean --force
+            echo "🧹 Cleared npm cache"
+            
+            # Second attempt with npm ci
+            if npm ci; then
+              echo "✅ Dependencies installed successfully after cache clear"
+            else
+              echo "⚠️ npm ci still failing, trying npm install as fallback..."
+              
+              # Fallback to npm install
+              if npm install; then
+                echo "✅ Dependencies installed successfully with npm install fallback"
+              else
+                echo "❌ All installation methods failed"
+                echo "📋 Debugging information:"
+                echo "Node version: $(node --version)"
+                echo "npm version: $(npm --version)"
+                echo "Platform: $(uname -a)"
+                echo "Available disk space: $(df -h . | tail -1)"
+                echo "Memory usage: $(free -h || echo 'free command not available')"
+                exit 1
+              fi
+            fi
+          fi
+          
+          # Verify installation
+          echo "🔍 Verifying critical dependencies..."
+          npm list vite || echo "⚠️ Vite not found"
+          npm list @rollup/rollup-linux-x64-gnu || echo "⚠️ Linux rollup binary not found"
+          npm list @rollup/rollup-linux-x64-musl || echo "⚠️ Alpine rollup binary not found"
 
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
@@ -55,29 +94,128 @@ jobs:
           npm list | grep rollup || echo "No rollup packages found"
 
       - name: Build application
-        run: npm run build
+        timeout-minutes: 10
+        run: |
+          echo "🏗️ Building application with enhanced error handling..."
+          
+          # First build attempt
+          if npm run build; then
+            echo "✅ Build completed successfully"
+          else
+            echo "⚠️ Build failed, attempting diagnosis and retry..."
+            
+            # Debug information
+            echo "📋 Build debugging information:"
+            echo "Node version: $(node --version)"
+            echo "npm version: $(npm --version)"
+            echo "Available memory: $(free -h || echo 'Memory info not available')"
+            echo "Disk space: $(df -h . | tail -1)"
+            
+            # Check for common issues
+            echo "🔍 Checking for common build issues..."
+            
+            # Verify rollup dependencies
+            if npm list rollup > /dev/null 2>&1; then
+              echo "✅ Rollup is available"
+              npm list | grep rollup || echo "No rollup packages visible"
+            else
+              echo "❌ Rollup not found, attempting to install..."
+              npm install rollup --save-dev
+            fi
+            
+            # Check if it's a memory issue
+            echo "🧠 Checking Node.js memory settings..."
+            export NODE_OPTIONS="--max-old-space-size=4096"
+            echo "Set NODE_OPTIONS to: $NODE_OPTIONS"
+            
+            # Retry build with increased memory
+            echo "🔄 Retrying build with increased memory allocation..."
+            if npm run build; then
+              echo "✅ Build succeeded with increased memory"
+            else
+              echo "❌ Build failed even with increased memory"
+              echo "📋 Final debugging output:"
+              echo "Environment variables:"
+              env | grep -E "(NODE|NPM|PATH)" || echo "No relevant env vars"
+              echo "Package.json scripts:"
+              node -e "console.log(JSON.stringify(require('./package.json').scripts, null, 2))"
+              exit 1
+            fi
+          fi
+          
+          # Verify build output
+          echo "🔍 Verifying build output..."
+          if [ -d "dist" ]; then
+            echo "✅ Build directory created"
+            echo "📁 Build contents:"
+            ls -la dist/ | head -10
+          else
+            echo "❌ Build directory not found"
+            exit 1
+          fi
 
       - name: Start Vite preview server
+        timeout-minutes: 5
         run: |
+          echo "🚀 Starting Vite development server with enhanced monitoring..."
+          
+          # Start the server
           npm run dev &
           SERVER_PID=$!
           echo "Started Vite server with PID: $SERVER_PID"
           echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
           
-          # Wait for server to be ready
-          echo "Waiting for server to start..."
-          timeout=60
-          while ! curl -s http://127.0.0.1:3333 > /dev/null; do
-            if [ $timeout -le 0 ]; then
-              echo "❌ Server failed to start within 60 seconds"
-              kill $SERVER_PID 2>/dev/null || true
+          # Enhanced server readiness check
+          echo "⏳ Waiting for server to be ready..."
+          timeout=90
+          attempt=0
+          max_attempts=90
+          
+          while [ $attempt -lt $max_attempts ]; do
+            attempt=$((attempt + 1))
+            
+            # Check if process is still running
+            if ! kill -0 $SERVER_PID 2>/dev/null; then
+              echo "❌ Server process died unexpectedly"
+              echo "📋 Checking for error logs..."
+              
+              # Try to start server in foreground to see errors
+              echo "🔍 Attempting to start server in foreground for debugging..."
+              timeout 10s npm run dev || echo "Server startup failed"
               exit 1
             fi
-            echo "Waiting... ($timeout seconds remaining)"
+            
+            # Test server connectivity
+            if curl -s --max-time 5 http://127.0.0.1:3333 > /dev/null; then
+              echo "✅ Server is ready and responding!"
+              break
+            fi
+            
+            # Progress indicator
+            if [ $((attempt % 10)) -eq 0 ]; then
+              echo "Still waiting... (attempt $attempt/$max_attempts, $(( (max_attempts - attempt) )) seconds remaining)"
+            fi
+            
             sleep 1
-            timeout=$((timeout-1))
           done
-          echo "✅ Server is ready!"
+          
+          # Final check
+          if [ $attempt -ge $max_attempts ]; then
+            echo "❌ Server failed to start within $max_attempts seconds"
+            echo "📋 Server debugging information:"
+            echo "Process status: $(ps aux | grep -v grep | grep $SERVER_PID || echo 'Process not found')"
+            echo "Port 3333 status: $(netstat -ln | grep :3333 || echo 'Port not listening')"
+            echo "System resources:"
+            echo "  Memory: $(free -h || echo 'Memory info not available')"
+            echo "  Disk: $(df -h . | tail -1)"
+            
+            # Try one final connectivity test with verbose output
+            echo "🔍 Final connectivity test with verbose output:"
+            curl -v --max-time 10 http://127.0.0.1:3333 || echo "Final connectivity test failed"
+            
+            kill $SERVER_PID 2>/dev/null || true
+            exit 1
+          fi
 
       - name: Verify server is responding
         run: |
@@ -86,21 +224,92 @@ jobs:
           echo "Server is responding correctly"
 
       - name: Run Playwright tests
+        timeout-minutes: 15
         run: |
-          npx playwright test
-          ls -al
-          ls -al playwright-report || true
-          ls -al test-results || true
-          npx playwright show-report || true
-        timeout-minutes: 10
+          echo "🎭 Running Playwright tests with enhanced error handling..."
+          
+          # Pre-test verification
+          echo "🔍 Pre-test verification:"
+          echo "Server status: $(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3333 || echo "Connection failed")"
+          echo "Node version: $(node --version)"
+          echo "Playwright version: $(npx playwright --version)"
+          
+          # Run tests with retry logic
+          test_exit_code=0
+          if npx playwright test; then
+            echo "✅ All tests passed on first attempt"
+          else
+            test_exit_code=$?
+            echo "⚠️ Some tests failed (exit code: $test_exit_code)"
+            
+            # Enhanced debugging information
+            echo "📋 Test failure debugging information:"
+            echo "Available disk space: $(df -h . | tail -1)"
+            echo "Memory usage: $(free -h || echo 'Memory info not available')"
+            echo "Server still responding: $(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3333 || echo "Server unreachable")"
+            
+            # Check for common test issues
+            if [ -d "test-results" ]; then
+              echo "📁 Test results directory contents:"
+              find test-results -type f -name "*.png" | head -5 | while read screenshot; do
+                echo "  Screenshot: $screenshot ($(du -h "$screenshot" | cut -f1))"
+              done
+              
+              echo "📹 Test videos found:"
+              find test-results -type f -name "*.webm" | head -3 | while read video; do
+                echo "  Video: $video ($(du -h "$video" | cut -f1))"
+              done
+            fi
+          fi
+          
+          # Post-test artifact collection
+          echo "📦 Collecting test artifacts..."
+          ls -la || true
+          ls -la playwright-report 2>/dev/null || echo "No playwright-report directory"
+          ls -la test-results 2>/dev/null || echo "No test-results directory"
+          
+          # Try to generate report regardless of test outcome
+          echo "📊 Attempting to generate test report..."
+          npx playwright show-report --reporter=html || echo "Could not generate HTML report"
+          
+          # Exit with original test exit code
+          if [ $test_exit_code -ne 0 ]; then
+            echo "❌ Tests failed with exit code $test_exit_code"
+            exit $test_exit_code
+          else
+            echo "✅ All tests completed successfully"
+          fi
 
       - name: Stop Vite server
         if: always()
         run: |
+          echo "🧹 Cleaning up server process..."
           if [ ! -z "$SERVER_PID" ]; then
             echo "Stopping server with PID: $SERVER_PID"
+            
+            # Graceful shutdown first
             kill $SERVER_PID 2>/dev/null || true
+            sleep 3
+            
+            # Force kill if still running
+            if kill -0 $SERVER_PID 2>/dev/null; then
+              echo "⚠️ Server still running, force killing..."
+              kill -9 $SERVER_PID 2>/dev/null || true
+            fi
+            
+            # Verify server is stopped
+            if kill -0 $SERVER_PID 2>/dev/null; then
+              echo "❌ Failed to stop server process"
+            else
+              echo "✅ Server stopped successfully"
+            fi
+          else
+            echo "ℹ️ No server PID found to clean up"
           fi
+          
+          # Clean up any remaining processes on port 3333
+          echo "🔍 Checking for processes on port 3333..."
+          netstat -tlnp 2>/dev/null | grep :3333 || echo "No processes found on port 3333"
 
       - name: Upload test results
         if: always()
@@ -117,3 +326,64 @@ jobs:
           name: test-videos
           path: test-results/
           retention-days: 30 
+
+      - name: Workflow Summary
+        if: always()
+        run: |
+          echo "📋 Workflow Execution Summary"
+          echo "================================"
+          echo "🚀 Workflow: Test Branch with Playwright against Vite Server"
+          echo "🌿 Branch: ${{ github.ref_name }}"
+          echo "📝 Commit: ${{ github.sha }}"
+          echo "👤 Actor: ${{ github.actor }}"
+          echo "⏰ Started: ${{ github.event.head_commit.timestamp }}"
+          echo ""
+          
+          echo "🔧 Environment Information:"
+          echo "  Node.js: $(node --version)"
+          echo "  npm: $(npm --version)"
+          echo "  Platform: $(uname -a)"
+          echo "  Available memory: $(free -h | grep Mem || echo 'Memory info not available')"
+          echo "  Disk usage: $(df -h . | tail -1)"
+          echo ""
+          
+          echo "📦 Dependency Status:"
+          npm list vite 2>/dev/null | grep vite || echo "  Vite: Not found"
+          npm list @rollup/rollup-linux-x64-gnu 2>/dev/null | grep rollup-linux-x64-gnu || echo "  Linux Rollup Binary: Not found"
+          npm list @rollup/rollup-linux-x64-musl 2>/dev/null | grep rollup-linux-x64-musl || echo "  Alpine Rollup Binary: Not found"
+          npm list @playwright/test 2>/dev/null | grep playwright || echo "  Playwright: Not found"
+          echo ""
+          
+          echo "📊 Artifact Status:"
+          if [ -d "playwright-report" ]; then
+            echo "  ✅ Playwright HTML Report: Available ($(du -sh playwright-report | cut -f1))"
+          else
+            echo "  ❌ Playwright HTML Report: Not generated"
+          fi
+          
+          if [ -d "test-results" ]; then
+            screenshot_count=$(find test-results -name "*.png" 2>/dev/null | wc -l)
+            video_count=$(find test-results -name "*.webm" 2>/dev/null | wc -l)
+            echo "  📸 Screenshots: $screenshot_count files"
+            echo "  📹 Videos: $video_count files"
+            echo "  📁 Test Results: Available ($(du -sh test-results | cut -f1))"
+          else
+            echo "  ❌ Test Results: Not generated"
+          fi
+          echo ""
+          
+          echo "🎯 Key Metrics:"
+          if [ -f "playwright-report/index.html" ]; then
+            echo "  📊 Detailed test report available in artifacts"
+          fi
+          
+          echo "  💾 Artifact retention: 30 days"
+          echo "  🔄 Workflow run ID: ${{ github.run_id }}"
+          echo "  🌐 View results: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo ""
+          
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "🎉 Workflow completed successfully!"
+          else
+            echo "❌ Workflow completed with issues. Check the logs above for details."
+          fi

@@ -1,7 +1,7 @@
 {
   "name": "een-gng",
-  "version": "0.2.72",
-  "lastCommit": "2025-06-14T20:38:38.442Z",
+  "version": "0.2.74",
+  "lastCommit": "2025-06-15T11:52:32.430Z",
   "private": true,
   "type": "module",
   "base": "/een-gng/",
@@ -47,6 +47,7 @@
     "@istanbuljs/nyc-config-typescript": "^1.0.2",
     "@playwright/test": "^1.52.0",
     "@rollup/rollup-linux-x64-gnu": "^4.43.0",
+    "@rollup/rollup-linux-x64-musl": "^4.43.0",
     "@rushstack/eslint-patch": "^1.3.3",
     "@vitejs/plugin-vue": "^5.0.3",
     "@vue/eslint-config-prettier": "^8.0.0",
