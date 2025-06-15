@@ -1,11 +1,14 @@
 # EEN API Documentation
 
-This document provides comprehensive documentation for the EEN (Eagle Eye Networks) API services used in the application.
+This document provides comprehensive documentation for the EEN (Eagle Eye Networks) API services used in the application. Pleas note that there is a version of this EEN Login application that shows more details 
+and practial examples [here](https://github.com/klaushofrichter/een-playgroundimage.png).
 
 ## Table of Contents
 - [Camera Service](#camera-service)
 - [Sensor Service](#sensor-service)
 - [Media Service](#media-service)
+- [Media Session Service](#media-session-service)
+- [Feeds Service](#feeds-service)
 - [User Service](#user-service)
 - [Measurements Service](#measurements-service)
 - [Sensor Gateways Service](#sensor-gateways-service)
@@ -177,24 +180,117 @@ Deletes a sensor device.
 
 ## Media Service
 
-The Media Service provides functionality to interact with EEN Media APIs.
+The Media Service provides comprehensive functionality to interact with EEN Media APIs for retrieving live and recorded media content.
 
 ### Methods
 
-#### `getLiveImage(deviceId, previewType = 'jpeg')`
+#### `listMedia(options = {})`
+Lists media intervals for a device with various filtering options.
+
+**Parameters:**
+- `options` (Object, required):
+  - `deviceId` (string): The ID of the device (required)
+  - `type` (string): Stream type ('preview' or 'main') (required)
+  - `mediaType` (string): Media type ('video' or 'image') (required)
+  - `startTimestamp__gte` (string): Start timestamp (ISO 8601) (required)
+  - `endTimestamp__lte` (string, optional): End timestamp (ISO 8601)
+  - `coalesce` (boolean, optional): Coalesce connected intervals (default: true)
+  - `include` (Array<string>, optional): Fields to include ('flvUrl', 'rtspUrl', 'rtspsUrl', 'multipartUrl', 'mp4Url')
+  - `pageToken` (string, optional): Page token for pagination
+  - `pageSize` (number, optional): Number of results per page
+
+**Returns:** Promise<Object> - Paginated list of media intervals
+
+**Example:**
+```javascript
+const mediaList = await mediaService.listMedia({
+  deviceId: 'camera123',
+  type: 'preview',
+  mediaType: 'video',
+  startTimestamp__gte: '2023-01-01T00:00:00Z',
+  endTimestamp__lte: '2023-01-01T23:59:59Z',
+  include: ['flvUrl', 'mp4Url']
+});
+```
+
+#### `getLiveImage(deviceId, type = 'preview')`
 Retrieves a live image from a camera.
 
 **Parameters:**
 - `deviceId` (string): The ID of the device (camera)
-- `previewType` (string, optional): The type of preview to fetch (default: 'jpeg')
+- `type` (string, optional): The type of stream to fetch ('preview' only for live images, default: 'preview')
 
 **Returns:** Promise<Object>:
-- `image` (string|null): Base64 encoded image data
-- `timestamp` (string|null): Image timestamp
-- `prevToken` (string|null): Previous token for caching
+- `image` (string|null): Base64 encoded image data with data URI format
+- `timestamp` (string|null): Image timestamp from X-Een-Timestamp header
+- `prevToken` (string|null): Previous token from X-Een-PrevToken header
 
-#### `getRecordedImage(deviceId, timestamp, type = 'preview')`
-Retrieves a recorded image from a camera at a specific timestamp.
+**Example:**
+```javascript
+const liveImage = await mediaService.getLiveImage('camera123');
+if (liveImage.image) {
+  // Use the base64 image directly in an img tag
+  document.getElementById('livePreview').src = liveImage.image;
+}
+```
+
+#### `getRecordedImage(options = {})`
+Retrieves a recorded image from a camera with advanced filtering and navigation options.
+
+**Parameters:**
+- `options` (Object):
+  - `deviceId` (string, optional): The ID of the device (camera) - not required when using pageToken
+  - `pageToken` (string, optional): Token from previous request (X-Een-NextToken or X-Een-PrevToken)
+  - `type` (string, optional): Stream type ('preview' or 'main')
+  - `timestamp__lt` (string, optional): Return first image with timestamp less than
+  - `timestamp__lte` (string, optional): Return first image with timestamp less or equal
+  - `timestamp` (string, optional): Return image at this exact timestamp
+  - `timestamp__gte` (string, optional): Return first image with timestamp greater or equal
+  - `timestamp__gt` (string, optional): Return first image with timestamp greater than
+  - `overlayId__in` (Array<string>, optional): List of overlay IDs to include
+  - `include` (Array<string>, optional): Include options ('overlayEmbedded', 'overlaySvgHeader')
+
+**Returns:** Promise<Object>:
+- `image` (string|null): Base64 encoded image data with data URI format
+- `timestamp` (string|null): Image timestamp from X-Een-Timestamp header
+- `nextToken` (string|null): Next token from X-Een-NextToken header
+- `prevToken` (string|null): Previous token from X-Een-PrevToken header
+- `overlaySvg` (string|null): Overlay SVG data from X-Een-OverlaySvg header
+
+**Example:**
+```javascript
+// Get image at specific timestamp
+const recordedImage = await mediaService.getRecordedImage({
+  deviceId: 'camera123',
+  timestamp__gte: '2023-01-01T12:00:00Z',
+  type: 'main'
+});
+
+// Navigate using tokens
+if (recordedImage.nextToken) {
+  const nextImage = await mediaService.getRecordedImage({
+    pageToken: recordedImage.nextToken
+  });
+}
+```
+
+#### `listRecordedImageFieldValues(deviceId, include = [])`
+Gets available field values for recorded images, useful for discovering available overlays.
+
+**Parameters:**
+- `deviceId` (string): The ID of the device (camera)
+- `include` (Array<string>, optional): Fields to include ('overlayId')
+
+**Returns:** Promise<Object> - Available field values
+
+**Example:**
+```javascript
+const fieldValues = await mediaService.listRecordedImageFieldValues('camera123', ['overlayId']);
+console.log('Available overlays:', fieldValues.overlayId);
+```
+
+#### `getRecordedImageLegacy(deviceId, timestamp, type = 'preview')` ⚠️ Deprecated
+Legacy method for backward compatibility. Use `getRecordedImage` instead.
 
 **Parameters:**
 - `deviceId` (string): The ID of the device (camera)
@@ -205,6 +301,338 @@ Retrieves a recorded image from a camera at a specific timestamp.
 - `image` (string|null): Base64 encoded image data
 - `timestamp` (string|null): Image timestamp
 - `prevToken` (string|null): Previous token for caching
+
+### Utility Methods
+
+#### `arrayBufferToBase64(buffer)`
+Converts ArrayBuffer to base64 string for image processing.
+
+**Parameters:**
+- `buffer` (ArrayBuffer): The array buffer to convert
+
+**Returns:** string - Base64 string
+
+## Media Session Service
+
+The Media Session Service manages media session cookies required for accessing media streams and URLs returned by the Media Service.
+
+### Methods
+
+#### `getMediaSession()`
+Retrieves the media session URL for setting session cookies.
+
+**Returns:** Promise<Object> - Media session URL response
+
+**Example:**
+```javascript
+const session = await mediaSessionService.getMediaSession();
+console.log('Session URL:', session.url);
+```
+
+#### `initializeMediaSession()`
+Initializes media session cookie by calling the session URL. This method fetches the session URL and makes a request to set the cookie automatically.
+
+**Returns:** Promise<boolean> - True if session was successfully initialized
+
+**Example:**
+```javascript
+try {
+  await mediaSessionService.initializeMediaSession();
+  console.log('Media session initialized');
+  // Now you can access media URLs that require session cookies
+} catch (error) {
+  console.error('Failed to initialize media session:', error);
+}
+```
+
+#### `getMediaSessionUrl()`
+Gets the media session URL for manual redirection or processing.
+
+**Returns:** Promise<string> - The session URL for manual redirection
+
+**Example:**
+```javascript
+const sessionUrl = await mediaSessionService.getMediaSessionUrl();
+window.location.href = sessionUrl; // Manual redirect
+```
+
+#### `isMediaSessionActive(testMediaUrl = null)`
+Checks if media session is likely active by testing access to a media endpoint.
+
+**Parameters:**
+- `testMediaUrl` (string, optional): A media URL to test
+
+**Returns:** Promise<boolean> - True if session appears to be active
+
+**Example:**
+```javascript
+const mediaUrl = 'https://media.eagleeyenetworks.com/stream/video.flv';
+const isActive = await mediaSessionService.isMediaSessionActive(mediaUrl);
+if (!isActive) {
+  await mediaSessionService.initializeMediaSession();
+}
+```
+
+### Media Session Workflow
+
+1. **Initialize Session**: Call `initializeMediaSession()` before accessing media URLs
+2. **Access Media**: Use media URLs returned by Media Service methods
+3. **Check Status**: Use `isMediaSessionActive()` to verify session validity
+4. **Re-initialize**: Call `initializeMediaSession()` again if session expires
+
+**Example Complete Workflow:**
+```javascript
+// Initialize media session
+await mediaSessionService.initializeMediaSession();
+
+// Get media intervals
+const mediaList = await mediaService.listMedia({
+  deviceId: 'camera123',
+  type: 'preview',
+  mediaType: 'video',
+  startTimestamp__gte: '2023-01-01T00:00:00Z',
+  include: ['flvUrl']
+});
+
+// Access the media URL (session cookie will be included automatically)
+const videoUrl = mediaList.results[0].flvUrl;
+```
+
+## Feeds Service
+
+The Feeds Service provides functionality to interact with EEN Feeds APIs for retrieving live streaming URLs and feed information for devices.
+
+### Methods
+
+#### `listFeeds(options = {})`
+Lists feeds for devices with comprehensive filtering options.
+
+**Parameters:**
+- `options` (Object, optional):
+  - `deviceId` (string, optional): The device generating the feed
+  - `deviceId__in` (Array<string>, optional): Array of device IDs to filter feeds
+  - `type` (string, optional): Stream type ('main', 'preview', 'talkdown')
+  - `include` (Array<string>, optional): Fields to include in response
+  - `pageToken` (string, optional): Page token for pagination
+  - `pageSize` (number, optional): Number of results per page
+
+**Include Options:**
+- `'flvUrl'` - Flash video URL for HTTPS streaming
+- `'rtspUrl'` - RTSP protocol URL for media streaming
+- `'rtspsUrl'` - RTSP over TLS (secure) URL
+- `'localRtspUrl'` - Direct bridge RTSP URL
+- `'hlsUrl'` - HTTP Live Streaming URL
+- `'multipartUrl'` - Multipart HTTPS streaming URL (auto-refreshing)
+- `'webRtcUrl'` - WebRTC URL for real-time communication
+- `'audioPushHttpsUrl'` - Audio push URL for speakers
+
+**Returns:** Promise<Object> - Paginated list of feeds
+
+**Example:**
+```javascript
+// Get all feeds for a device with streaming URLs
+const feeds = await feedsService.listFeeds({
+  deviceId: 'camera123',
+  include: ['multipartUrl', 'flvUrl', 'hlsUrl']
+});
+
+// Filter by stream type
+const previewFeeds = await feedsService.listFeeds({
+  deviceId: 'camera123',
+  type: 'preview',
+  include: ['multipartUrl']
+});
+
+// Get feeds for multiple devices
+const multiDeviceFeeds = await feedsService.listFeeds({
+  deviceId__in: ['camera123', 'camera456'],
+  include: ['multipartUrl', 'flvUrl']
+});
+```
+
+#### `getFeedsForDevice(deviceId, options = {})`
+Convenient method to get feeds for a specific device with optional filtering.
+
+**Parameters:**
+- `deviceId` (string): The device ID to get feeds for (required)
+- `options` (Object, optional):
+  - `type` (string, optional): Filter by stream type
+  - `include` (Array<string>, optional): Fields to include in response
+
+**Returns:** Promise<Object> - Feeds response for the device
+
+**Example:**
+```javascript
+// Get all feeds for a device
+const deviceFeeds = await feedsService.getFeedsForDevice('camera123', {
+  include: ['multipartUrl', 'flvUrl']
+});
+
+// Get only preview feeds
+const previewFeeds = await feedsService.getFeedsForDevice('camera123', {
+  type: 'preview',
+  include: ['multipartUrl']
+});
+```
+
+#### `getMultipartUrl(deviceId, type = 'preview')`
+Gets the multipart URL for live streaming from a specific device and stream type.
+
+**Parameters:**
+- `deviceId` (string): The device ID (required)
+- `type` (string, optional): Stream type ('main', 'preview', 'talkdown', default: 'preview')
+
+**Returns:** Promise<string|null> - The multipart URL or null if not found
+
+**Example:**
+```javascript
+// Get preview multipart URL (most common for live viewing)
+const previewUrl = await feedsService.getMultipartUrl('camera123', 'preview');
+if (previewUrl) {
+  // Use URL in img tag for auto-refreshing live stream
+  document.getElementById('liveStream').src = previewUrl;
+}
+
+// Get high-quality main stream URL
+const mainUrl = await feedsService.getMultipartUrl('camera123', 'main');
+```
+
+#### `getAllUrls(deviceId, type = 'preview')`
+Gets all available streaming URLs for a specific device and stream type.
+
+**Parameters:**
+- `deviceId` (string): The device ID (required)
+- `type` (string, optional): Stream type ('main', 'preview', 'talkdown', default: 'preview')
+
+**Returns:** Promise<Object|null> - Object with all available URLs or null if not found
+
+**Response Object Properties:**
+- `flvUrl` (string|null): Flash video URL
+- `rtspUrl` (string|null): RTSP URL
+- `rtspsUrl` (string|null): Secure RTSP URL
+- `localRtspUrl` (string|null): Local bridge RTSP URL
+- `hlsUrl` (string|null): HLS streaming URL
+- `multipartUrl` (string|null): Multipart streaming URL
+- `webRtcUrl` (string|null): WebRTC URL
+- `audioPushHttpsUrl` (string|null): Audio push URL
+
+**Example:**
+```javascript
+// Get all available streaming URLs
+const urls = await feedsService.getAllUrls('camera123', 'preview');
+
+if (urls) {
+  console.log('Available streaming options:');
+  if (urls.multipartUrl) console.log('Multipart:', urls.multipartUrl);
+  if (urls.flvUrl) console.log('FLV:', urls.flvUrl);
+  if (urls.hlsUrl) console.log('HLS:', urls.hlsUrl);
+  if (urls.rtspUrl) console.log('RTSP:', urls.rtspUrl);
+  if (urls.webRtcUrl) console.log('WebRTC:', urls.webRtcUrl);
+}
+
+// Use the best available URL for your use case
+const streamUrl = urls.multipartUrl || urls.flvUrl || urls.hlsUrl;
+```
+
+### Stream Types
+
+The feeds service supports three main stream types:
+
+1. **`preview`** - Low resolution, low framerate stream optimized for live monitoring
+2. **`main`** - High resolution, high framerate stream for detailed viewing
+3. **`talkdown`** - Audio stream for two-way communication with speakers
+
+### URL Types and Use Cases
+
+#### **`multipartUrl`** (Recommended for Live Viewing)
+- **Use Case**: Auto-refreshing live images in web browsers
+- **Format**: Multipart HTTPS stream
+- **Benefits**: Automatic updates, works directly in `<img>` tags
+- **Example**: Perfect for dashboard live camera previews
+
+#### **`flvUrl`**
+- **Use Case**: Video streaming in Flash-compatible players
+- **Format**: Flash Video over HTTPS
+- **Benefits**: Supports both live and recorded playback
+- **Example**: Legacy video player integration
+
+#### **`hlsUrl`**
+- **Use Case**: Mobile and modern web video streaming
+- **Format**: HTTP Live Streaming (HLS)
+- **Benefits**: Adaptive bitrate, mobile-friendly
+- **Example**: iOS/Android apps, modern video players
+
+#### **`rtspUrl` / `rtspsUrl`**
+- **Use Case**: Professional video management systems
+- **Format**: Real-Time Streaming Protocol
+- **Benefits**: Low latency, industry standard
+- **Example**: VMS integration, security systems
+
+#### **`webRtcUrl`**
+- **Use Case**: Real-time two-way communication
+- **Format**: WebRTC peer-to-peer
+- **Benefits**: Ultra-low latency, bidirectional
+- **Example**: Intercom systems, live monitoring
+
+### Complete Workflow Examples
+
+#### **Basic Live Stream Setup**
+```javascript
+// 1. Initialize media session for authentication
+await mediaSessionService.initializeMediaSession();
+
+// 2. Get multipart URL for live streaming
+const liveUrl = await feedsService.getMultipartUrl('camera123', 'preview');
+
+// 3. Display in HTML
+if (liveUrl) {
+  document.getElementById('liveCamera').src = liveUrl;
+}
+```
+
+#### **Multi-Camera Dashboard**
+```javascript
+const cameraIds = ['cam001', 'cam002', 'cam003'];
+
+// Initialize media session once
+await mediaSessionService.initializeMediaSession();
+
+// Get feeds for all cameras
+const allUrls = await Promise.all(
+  cameraIds.map(id => feedsService.getMultipartUrl(id, 'preview'))
+);
+
+// Display all live streams
+allUrls.forEach((url, index) => {
+  if (url) {
+    document.getElementById(`camera-${index}`).src = url;
+  }
+});
+```
+
+#### **Stream Quality Selection**
+```javascript
+// Get all available URLs for quality selection
+const urls = await feedsService.getAllUrls('camera123');
+
+// Let user choose quality
+const qualitySelect = document.getElementById('quality');
+if (urls.multipartUrl) {
+  qualitySelect.innerHTML += '<option value="preview">Preview Quality</option>';
+}
+
+// Get main stream for high quality
+const mainUrls = await feedsService.getAllUrls('camera123', 'main');
+if (mainUrls.multipartUrl) {
+  qualitySelect.innerHTML += '<option value="main">High Quality</option>';
+}
+
+// Switch quality based on selection
+qualitySelect.addEventListener('change', async (e) => {
+  const streamUrl = await feedsService.getMultipartUrl('camera123', e.target.value);
+  document.getElementById('videoPlayer').src = streamUrl;
+});
+```
 
 ## User Service
 
