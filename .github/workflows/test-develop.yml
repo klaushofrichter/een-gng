@@ -43,34 +43,44 @@ jobs:
         run: |
           echo "🔧 Installing dependencies with error handling..."
           
-          # First attempt with npm ci
-          if npm ci; then
-            echo "✅ Dependencies installed successfully with npm ci"
+          # First attempt with npm ci including optional dependencies
+          if npm ci --include=optional; then
+            echo "✅ Dependencies installed successfully with npm ci (including optional)"
           else
-            echo "⚠️ npm ci failed, trying alternative approaches..."
+            echo "⚠️ npm ci with optional failed, trying without optional deps..."
             
-            # Clear npm cache and retry
-            npm cache clean --force
-            echo "🧹 Cleared npm cache"
-            
-            # Second attempt with npm ci
-            if npm ci; then
-              echo "✅ Dependencies installed successfully after cache clear"
-            else
-              echo "⚠️ npm ci still failing, trying npm install as fallback..."
+            # Try without optional dependencies first
+            if npm ci --omit=optional; then
+              echo "✅ Core dependencies installed, now installing optional dependencies..."
               
-              # Fallback to npm install
-              if npm install; then
-                echo "✅ Dependencies installed successfully with npm install fallback"
+              # Try to install optional dependencies separately
+              npm install --optional @rollup/rollup-linux-x64-gnu @rollup/rollup-linux-x64-musl || echo "⚠️ Some optional rollup binaries failed to install (this is OK)"
+            else
+              echo "⚠️ npm ci failed, trying alternative approaches..."
+              
+              # Clear npm cache and retry
+              npm cache clean --force
+              echo "🧹 Cleared npm cache"
+              
+              # Second attempt with npm ci
+              if npm ci; then
+                echo "✅ Dependencies installed successfully after cache clear"
               else
-                echo "❌ All installation methods failed"
-                echo "📋 Debugging information:"
-                echo "Node version: $(node --version)"
-                echo "npm version: $(npm --version)"
-                echo "Platform: $(uname -a)"
-                echo "Available disk space: $(df -h . | tail -1)"
-                echo "Memory usage: $(free -h || echo 'free command not available')"
-                exit 1
+                echo "⚠️ npm ci still failing, trying npm install as fallback..."
+                
+                # Fallback to npm install
+                if npm install; then
+                  echo "✅ Dependencies installed successfully with npm install fallback"
+                else
+                  echo "❌ All installation methods failed"
+                  echo "📋 Debugging information:"
+                  echo "Node version: $(node --version)"
+                  echo "npm version: $(npm --version)"
+                  echo "Platform: $(uname -a)"
+                  echo "Available disk space: $(df -h . | tail -1)"
+                  echo "Memory usage: $(free -h || echo 'free command not available')"
+                  exit 1
+                fi
               fi
             fi
           fi
@@ -78,8 +88,8 @@ jobs:
           # Verify installation
           echo "🔍 Verifying critical dependencies..."
           npm list vite || echo "⚠️ Vite not found"
-          npm list @rollup/rollup-linux-x64-gnu || echo "⚠️ Linux rollup binary not found"
-          npm list @rollup/rollup-linux-x64-musl || echo "⚠️ Alpine rollup binary not found"
+          npm list @rollup/rollup-linux-x64-gnu || echo "ℹ️ Linux rollup binary not installed (optional)"
+          npm list @rollup/rollup-linux-x64-musl || echo "ℹ️ Alpine rollup binary not installed (optional)"
 
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
