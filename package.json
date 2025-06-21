@@ -1,7 +1,7 @@
 {
   "name": "een-gng",
-  "version": "0.2.76",
-  "lastCommit": "2025-06-16T02:02:19.515Z",
+  "version": "0.2.77",
+  "lastCommit": "2025-06-21T22:31:44.262Z",
   "private": true,
   "type": "module",
   "base": "/een-gng/",
@@ -34,6 +34,7 @@
     "favicon": "node scripts/generate-favicon.js"
   },
   "dependencies": {
+    "@een/live-video-web-sdk": "^1.9.2",
     "axios": "^1.6.7",
     "firebase": "^11.7.1",
     "gh-pages": "^6.3.0",
