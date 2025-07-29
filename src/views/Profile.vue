@@ -71,110 +71,92 @@
                   Credentials
                 </h4>
                 <div class="space-y-4">
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  <div class="flex items-center space-x-4">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300 w-20 flex-shrink-0"
                       >Base URL</label
                     >
-                    <div class="flex items-center space-x-4">
-                      <div class="flex-1">
-                        <input
-                          :value="authStore.hostname"
-                          readonly
-                          class="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm sm:text-sm dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-0 focus:border-gray-300 dark:focus:border-gray-600"
-                        />
-                      </div>
-                      <div class="flex space-x-2">
-                        <button
-                          class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-                          @click="copyBaseUrl"
-                        >
-                          Copy Base URL
-                        </button>
-                      </div>
+                    <div class="flex-1">
+                      <input
+                        :value="authStore.hostname"
+                        readonly
+                        class="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm sm:text-sm dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-0 focus:border-gray-300 dark:focus:border-gray-600"
+                      />
                     </div>
+                    <button
+                      class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 flex-shrink-0"
+                      @click="copyBaseUrl"
+                    >
+                      Copy Base URL
+                    </button>
                   </div>
 
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  <div class="flex items-center space-x-4">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300 w-20 flex-shrink-0"
                       >Port</label
                     >
                     <input
                       :value="authStore.port"
                       readonly
-                      class="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm sm:text-sm dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-0 focus:border-gray-300 dark:focus:border-gray-600"
+                      class="flex-1 rounded-md border-gray-300 dark:border-gray-600 shadow-sm sm:text-sm dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-0 focus:border-gray-300 dark:focus:border-gray-600"
                     />
                   </div>
 
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  <div class="flex items-center space-x-4">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300 w-20 flex-shrink-0"
                       >Access Token</label
                     >
-                    <div class="flex items-center space-x-4">
-                      <div class="flex-1">
-                        <input
-                          :id="'access-token'"
-                          :type="showToken ? 'text' : 'password'"
-                          :value="authStore.token"
-                          readonly
-                          class="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm sm:text-sm dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-0 focus:border-gray-300 dark:focus:border-gray-600"
-                        />
-                      </div>
-                      <div class="flex space-x-2">
-                        <button
-                          class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-                          @click="toggleAndCopyToken"
-                        >
-                          {{ showToken ? 'Hide' : 'Show & Copy' }}
-                        </button>
-                      </div>
+                    <div class="flex-1">
+                      <input
+                        :id="'access-token'"
+                        :type="showToken ? 'text' : 'password'"
+                        :value="authStore.token"
+                        readonly
+                        class="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm sm:text-sm dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-0 focus:border-gray-300 dark:focus:border-gray-600"
+                      />
                     </div>
-                  </div>
-
-                  <!-- Token Expiration -->
-                  <div class="mt-4">
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                      >Token Expiration</label
+                    <button
+                      class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 flex-shrink-0"
+                      @click="toggleAndCopyToken"
                     >
-                    <div class="flex items-center space-x-2">
-                      <div class="flex-1">
-                        <div
-                          :id="'expiration-time'"
-                          class="block w-full rounded-md border border-gray-300 dark:border-gray-600 shadow-sm sm:text-sm dark:bg-gray-800 dark:text-gray-100 px-3 py-2 bg-gray-50 dark:bg-gray-700 break-words"
-                        >
-                          {{ tokenExpirationText }}
-                        </div>
-                      </div>
+                      {{ showToken ? 'Hide' : 'Show & Copy' }}
+                    </button>
+                  </div>
+
+                  <div class="flex items-center space-x-4">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300 w-20 flex-shrink-0"
+                      >Expiration</label
+                    >
+                    <div
+                      :id="'expiration-time'"
+                      class="flex-1 rounded-md border border-gray-300 dark:border-gray-600 shadow-sm sm:text-sm dark:bg-gray-800 dark:text-gray-100 px-3 py-2 bg-gray-50 dark:bg-gray-700 break-words"
+                    >
+                      {{ tokenExpirationText }}
                     </div>
                   </div>
 
-                  <!-- Refresh Token Status -->
-                  <div class="mt-4">
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  <div class="flex items-center space-x-4">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300 w-20 flex-shrink-0"
                       >Refresh Token</label
                     >
-                    <div class="flex items-center space-x-4">
-                      <div class="flex-1">
-                        <input
-                          :id="'refresh-token'"
-                          :value="hasRefreshToken ? 'Available' : 'No Refresh Token available'"
-                          readonly
-                          class="block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm sm:text-sm dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-0 focus:border-gray-300 dark:focus:border-gray-600"
-                        />
-                      </div>
-                      <button
-                        v-if="hasRefreshToken"
-                        :disabled="isRefreshing"
-                        class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                        @click="handleRefresh"
-                      >
-                        <span v-if="isRefreshing" class="mr-2">
-                          <div
-                            class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"
-                          ></div>
-                        </span>
-                        {{ isRefreshing ? 'Refreshing...' : 'Refresh' }}
-                      </button>
-                    </div>
+                    <input
+                      :id="'refresh-token'"
+                      :value="hasRefreshToken ? 'Available' : 'No Refresh Token available'"
+                      readonly
+                      class="flex-1 rounded-md border-gray-300 dark:border-gray-600 shadow-sm sm:text-sm dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:ring-0 focus:border-gray-300 dark:focus:border-gray-600"
+                    />
+                    <button
+                      v-if="hasRefreshToken"
+                      :disabled="isRefreshing"
+                      class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                      @click="handleRefresh"
+                    >
+                      <span v-if="isRefreshing" class="mr-2">
+                        <div
+                          class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"
+                        ></div>
+                      </span>
+                      {{ isRefreshing ? 'Refreshing...' : 'Refresh' }}
+                    </button>
                   </div>
                 </div>
               </div>
